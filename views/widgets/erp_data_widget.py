@@ -712,66 +712,66 @@ class ERPDataWidget(QWidget):
         self.confidence_label.setStyleSheet(f"color: {confidence_color}; font-weight: bold;")
 
 
-def _process_erp_file(self):
-    """Process the uploaded ERP file with enhanced auto-mapping."""
-    try:
-        file_path = self.file_path_label.text()
-        if not file_path or file_path == "No file selected":
-            QMessageBox.warning(self, "No File", "Please select a file first.")
-            return
-        
-        # Get sheet name for Excel files
-        sheet_name = None
-        if self.sheet_combo.isVisible() and self.sheet_combo.currentText():
-            sheet_name = self.sheet_combo.currentText()
-        
-        # Use enhanced processor
-        processor = ERPFileProcessor()
-        
-        # Process file with enhanced auto-mapping
-        result = processor.analyze_and_process_file(file_path, sheet_name)
-        
-        if not result['success']:
-            QMessageBox.critical(self, "Processing Error", 
-                               f"Failed to process file: {result.get('message', 'Unknown error')}")
-            return
-        
-        # Get processed and cleaned data
-        processed_df = result['data']
-        analysis = result['analysis']
-        
-        if processed_df.empty:
-            QMessageBox.warning(self, "No Data", 
-                              "No valid transaction data found in file after cleaning.")
-            return
-        
-        # Convert to TransactionData objects
-        transactions = []
-        for _, row in processed_df.iterrows():
-            try:
-                transaction = TransactionData(
-                    date=row['Date'].strftime('%Y-%m-%d') if pd.notna(row['Date']) else '',
-                    description=str(row.get('Description', '')),  # Now potentially combined
-                    amount=float(row.get('Amount', 0)),            # Now potentially combined
-                    reference=str(row.get('Reference', '')) if row.get('Reference') else None
-                )
-                transactions.append(transaction)
-            except Exception as e:
-                logger.warning(f"Skipping invalid transaction row: {e}")
-                continue
-        
-        # Update ViewModel
-        self.viewmodel._erp_transactions = transactions
-        self.viewmodel.notify_property_changed('erp_transactions', transactions)
-        
-        # Enhanced success message with mapping details
-        self._show_enhanced_success_message(transactions, analysis, file_path)
-        
-        logger.info(f"Enhanced ERP file processed: {len(transactions)} transactions loaded")
-        
-    except Exception as e:
-        logger.error(f"Enhanced ERP file processing error: {e}")
-        QMessageBox.critical(self, "Processing Error", f"Failed to process file: {str(e)}")
+    def _process_erp_file(self):
+        """Process the uploaded ERP file with enhanced auto-mapping."""
+        try:
+            file_path = self.file_path_label.text()
+            if not file_path or file_path == "No file selected":
+                QMessageBox.warning(self, "No File", "Please select a file first.")
+                return
+            
+            # Get sheet name for Excel files
+            sheet_name = None
+            if self.sheet_combo.isVisible() and self.sheet_combo.currentText():
+                sheet_name = self.sheet_combo.currentText()
+            
+            # Use enhanced processor
+            processor = ERPFileProcessor()
+            
+            # Process file with enhanced auto-mapping
+            result = processor.analyze_and_process_file(file_path, sheet_name)
+            
+            if not result['success']:
+                QMessageBox.critical(self, "Processing Error", 
+                                f"Failed to process file: {result.get('message', 'Unknown error')}")
+                return
+            
+            # Get processed and cleaned data
+            processed_df = result['data']
+            analysis = result['analysis']
+            
+            if processed_df.empty:
+                QMessageBox.warning(self, "No Data", 
+                                "No valid transaction data found in file after cleaning.")
+                return
+            
+            # Convert to TransactionData objects
+            transactions = []
+            for _, row in processed_df.iterrows():
+                try:
+                    transaction = TransactionData(
+                        date=row['Date'].strftime('%Y-%m-%d') if pd.notna(row['Date']) else '',
+                        description=str(row.get('Description', '')),  # Now potentially combined
+                        amount=float(row.get('Amount', 0)),            # Now potentially combined
+                        reference=str(row.get('Reference', '')) if row.get('Reference') else None
+                    )
+                    transactions.append(transaction)
+                except Exception as e:
+                    logger.warning(f"Skipping invalid transaction row: {e}")
+                    continue
+            
+            # Update ViewModel
+            self.viewmodel._erp_transactions = transactions
+            self.viewmodel.notify_property_changed('erp_transactions', transactions)
+            
+            # Enhanced success message with mapping details
+            self._show_enhanced_success_message(transactions, analysis, file_path)
+            
+            logger.info(f"Enhanced ERP file processed: {len(transactions)} transactions loaded")
+            
+        except Exception as e:
+            logger.error(f"Enhanced ERP file processing error: {e}")
+            QMessageBox.critical(self, "Processing Error", f"Failed to process file: {str(e)}")
 
     def _show_enhanced_success_message(self, transactions, analysis, file_path):
         """Show enhanced success message with detailed mapping information."""

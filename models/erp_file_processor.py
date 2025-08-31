@@ -169,6 +169,8 @@ class ERPFileProcessor:
                 'confidence': self._calculate_mapping_confidence(mapping),
                 'metadata': {
                     'file_type': 'excel',
+                    'sheet_name': sheet_name,
+                    'header_row': header_row_idx,
                     'total_rows': len(full_df),
                     'data_start_row': header_row_idx + 1
                 }
