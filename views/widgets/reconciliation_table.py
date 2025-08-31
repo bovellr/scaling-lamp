@@ -37,4 +37,3 @@ class ReconciliationTable(QTableWidget):
         """)
         self.setMinimumHeight(250)
         self.setSortingEnabled(True)
-

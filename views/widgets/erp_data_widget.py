@@ -78,7 +78,7 @@ class ERPDataWidget(QWidget):
         title_label.setStyleSheet("QLabel { font-size: 14pt; font-weight: bold; }")
         header_layout.addWidget(title_label)
         header_layout.addStretch()
-        layout.addWidget(header_layout)
+        layout.addLayout(header_layout)
         
         # Data source tabs
         self.source_tabs = QTabWidget()

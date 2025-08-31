@@ -85,6 +85,7 @@ class MainWindow(QMainWindow):
         self.main_layout = QVBoxLayout(central_widget)
         self.main_layout.setContentsMargins(10, 10, 10, 10)
         
+        
         # Build menu and toolbar
         self._build_menu_toolbar()
 
@@ -241,7 +242,7 @@ class MainWindow(QMainWindow):
         """Create the ERP data tab"""
         # Main widget for this tab
         self.erp_widget = ERPDataWidget()
-        self.erp_widget.erp_data_loaded.connect(self._on_erp_data_ready)
+        self.erp_widget.erp_data_loaded.connect(self.on_erp_data_ready)
 
         scroll_area = QScrollArea()
         scroll_area.setWidget(self.erp_widget)
@@ -760,6 +761,47 @@ class MainWindow(QMainWindow):
         )
         
         self.update_reconcile_button_state()
+
+    
+    @Slot()
+    def on_erp_data_ready(self, erp_transactions):
+        """Handle ERP data being loaded and ready"""
+        self.ledger_data = self._transactions_to_dataframe(erp_transactions)
+    
+        self.status_bar.showMessage(
+            f"ERP data loaded: {len(erp_transactions)} transactions"
+        )
+        
+        # Update reconcile button state
+        self.update_reconcile_button_state()
+        
+        # Log the data loading
+        logger.info(f"ERP data ready: {len(erp_transactions)} transactions")
+        
+        # Optionally show a message to user
+        QMessageBox.information(
+            self,
+            "ERP Data Ready",
+            f"ERP data loaded successfully!\n"
+            f"Transactions: {len(erp_transactions)}\n"
+            "You can now run reconciliation."
+        )
+
+    def _transactions_to_dataframe(self, transactions):
+        """Convert list of TransactionData to DataFrame"""
+        if not transactions:
+            return None
+        
+        data = []
+        for txn in transactions:
+            data.append({
+                'date': txn.date,
+                'description': txn.description, 
+                'amount': txn.amount,
+                'reference': getattr(txn, 'reference', '') or ''
+            })
+        
+        return pd.DataFrame(data)
 
     def update_reconcile_button_state(self):
         """Enable Auto Reconcile only when both datasets are available."""

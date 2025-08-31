@@ -29,6 +29,10 @@ class FileUploadWidget(QWidget):
     # Signals - using PySide6 Signal
     file_uploaded = Signal(str, str)  # file_type, file_path
     file_transformed = Signal(object)  # Emits BankStatement when transformation complete
+    bank_data_ready = Signal(object, dict)  # statement, result_info
+    processing_error = Signal(str, str)     # source_type, error_message  
+    erp_data_ready = Signal(object, str, str)  # data, source_type, source_info
+    both_sources_ready = Signal(object, object, dict)  # bank_transactions, erp_transactions, metadata
     
     def __init__(self, viewmodel: Optional[UploadViewModel] = None, parent=None):
         super().__init__(parent)
@@ -396,7 +400,7 @@ Success rate: {(result_info['rows_transformed']/result_info['rows_processed']*10
                 f"\nShowing first 50 of {len(statement.transactions)} transactions"
             )
     
-    def _on_template_changed(self):
+    def _on_template_changed(self, _text: str):
         """Handle template selection change."""
         template = self.template_combo.currentData()
         self.viewmodel.selected_template = template
