@@ -101,10 +101,10 @@ class MainWindow(QMainWindow):
 
         # Create tabs
         self._create_file_upload_tab()
-        #self._create_matching_reconciliation_tab()
-        #self._create_summary_reports_tab()
-        self._create_tab_widget_with_viewmodels(self.main_layout)
-
+        self._create_erp_data_tab()
+        self._create_matching_reconciliation_tab()
+        self._create_summary_reports_tab()
+        
         # Status bar
         self.status_bar = QStatusBar()
         self.setStatusBar(self.status_bar)

@@ -36,13 +36,11 @@ build/
 
 # Big data/model dirs (if you have them)
 database/
-models/
 data/
 config/
 logs/
 test_data/
 !data/.gitkeep
-!models/.gitkeep
 !test_data/.gitkeep
 *.log
 
