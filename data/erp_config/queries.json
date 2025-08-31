@@ -1,0 +1,40 @@
+{
+    "transactions": {
+        "name": "get_lloyds_main_transactions",
+        "description": "Get Lloyds Main Transactions within a date range",
+        "sql_query": "SELECT gl_posting_sysdate as date, gl_description as description, gl_amount as amount, gl_reference as reference FROM gl_transactions WHERE gl_account = :account_code AND gl_posting_sysdate BETWEEN :start_date AND :end_date",
+        "parameters": [
+            {
+                "name": "start_date",
+                "data_type": "date",
+                "description": "Start date",
+                "default_value": "null",
+                "is_required": true,
+                "validation_rule": null                             
+            },
+            {
+                "name": "end_date",
+                "data_type": "date",
+                "description": "End date",
+                "default_value": "null",
+                "is_required": true,
+                "validation_rule": null
+            },
+            {
+                "name": "account_code",
+                "data_type": "string",
+                "description": "Account number",
+                "default_value": "null",
+                "is_required": true,
+                "validation_rule": "^[0-9]{6}$"
+            }
+        ],
+        "connection_name": "default",
+        "expected_columns": [
+            "date",
+            "description",
+            "amount",
+            "reference"  
+        ]
+    }
+}

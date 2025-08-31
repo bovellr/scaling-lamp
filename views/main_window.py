@@ -297,7 +297,6 @@ class MainWindow(QMainWindow):
         self.btn_export_model.clicked.connect(self.export_ai_model)
         
         # Transaction tables section
-        self._build_transaction_tables_section(layout)
         self.transaction_tables = TransactionTablesWidget()
         layout.addWidget(self.transaction_tables)
         self.table_book = self.transaction_tables.table_book
@@ -1004,4 +1003,3 @@ class MainWindow(QMainWindow):
         if file_path:
             self.status_bar.showMessage(f"Report exported to: {Path(file_path).name}")
             logger.info(f"Report exported: {file_path}")
-    

@@ -3,10 +3,14 @@
 
 """Services package for Bank Reconciliation AI"""
 
+from .event_bus import EventBus
+from .logging_service import setup_logging
+from .account_config_manager import AccountConfigManager
 from .account_service import AccountService
+
 __all__ = [
     "EventBus",
     "setup_logging",
     "AccountConfigManager",
-    "AccountService",
+    "AccountService"
 ]
