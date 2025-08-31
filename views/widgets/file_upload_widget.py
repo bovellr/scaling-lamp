@@ -550,29 +550,74 @@ Success rate: {(result_info['rows_transformed']/result_info['rows_processed']*10
         self._update_erp_button_state()
     
     def _load_erp_data(self):
-        """Load ERP data from selected source"""
+        """Load ERP data using enhanced processor."""
         try:
-            if self.erp_source_type == 'file' and hasattr(self.viewmodel, 'load_erp_file'):
-                success = self.viewmodel.load_erp_file(self.erp_file_path)
-            elif self.erp_source_type == 'database' and hasattr(self.viewmodel, 'load_erp_from_database'):
-                # Would get connection params from settings
-                connection_params = {}  # Get from settings
-                success = self.viewmodel.load_erp_from_database(connection_params)
+            if self.erp_source_type == 'file':
+                # Check if we have a file path
+                if not hasattr(self, 'erp_file_path') or not self.erp_file_path:
+                    QMessageBox.warning(
+                        self, "No File Selected", 
+                        "Please select an ERP file first."
+                    )
+                    return
+                
+                # Use enhanced loading method
+                success = self.viewmodel.load_erp_from_file(self.erp_file_path)
+                
+            elif self.erp_source_type == 'database':
+                if hasattr(self.viewmodel, 'load_erp_from_database'):
+                    connection_params = self._get_database_connection_params()
+                    if connection_params:
+                        success = self.viewmodel.load_erp_from_database(connection_params)
+                    else:
+                        QMessageBox.warning(
+                            self, "No Database Configuration", 
+                            "Please configure database connection first."
+                        )
+                        return
+                else:
+                    QMessageBox.information(
+                        self, "Feature Unavailable", 
+                        "Database ERP loading will be available soon."
+                    )
+                    return
             else:
-                QMessageBox.information(
-                    self,
-                    "Feature Unavailable",
-                    f"ERP {self.erp_source_type} loading is not yet implemented."
+                QMessageBox.warning(
+                    self, "Invalid Source", 
+                    f"Unknown ERP source type: {self.erp_source_type}"
                 )
                 return
             
             if success:
-                self.status_label.setText("✓ ERP data loaded successfully")
-                self.status_label.setStyleSheet("QLabel { color: green; }")
+                self.status_label.setText("ERP data loaded with enhanced processing")
+                self.status_label.setStyleSheet("QLabel { color: green; font-weight: bold; }")
+                
+                # Update ERP summary with enhanced info
+                if hasattr(self.viewmodel, 'erp_data') and self.viewmodel.erp_data is not None:
+                    record_count = len(self.viewmodel.erp_data)
+                    source_info = getattr(self.viewmodel, '_erp_source_info', f'{record_count} transactions')
+                    self.erp_summary_label.setText(f"ERP: {source_info}")
+                    self.erp_summary_label.setStyleSheet(
+                        "padding: 8px; background-color: #d4edda; border: 1px solid #c3e6cb; "
+                        "color: #155724; font-weight: bold;"
+                    )
+                    
+                    # Show processing summary
+                    confidence_info = ""
+                    if hasattr(self.viewmodel, '_erp_source_info') and 'confidence' in self.viewmodel._erp_source_info:
+                        confidence_info = " with auto-mapping"
+                    
+                    self.status_label.setText(f"ERP data loaded: {record_count} transactions{confidence_info}")
+            else:
+                error_msg = getattr(self.viewmodel, 'error_message', 'Unknown error')
+                self.status_label.setText(f"ERP loading failed: {error_msg}")
+                self.status_label.setStyleSheet("QLabel { color: red; font-weight: bold; }")
             
         except Exception as e:
-            self.status_label.setText(f"✗ ERP loading failed: {str(e)}")
-            self.status_label.setStyleSheet("QLabel { color: red; }")
+            self.status_label.setText(f"ERP loading failed: {str(e)}")
+            self.status_label.setStyleSheet("QLabel { color: red; font-weight: bold; }")
+            logger.error(f"Enhanced ERP loading error: {e}")
+
     
     def _process_both_sources(self):
         """Process both bank and ERP data"""
