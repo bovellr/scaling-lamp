@@ -325,8 +325,8 @@ class UploadViewModel(BaseViewModel):
     # ERP DATA METHODS - New functionality
     # ========================================================================
     
-    def load_erp_file(self, file_path: str) -> bool:
-        """Load ERP data from file"""
+    def load_erp_from_file(self, file_path: str, mapping: Optional[Dict[str, int]] = None) -> bool:
+        """Enhanced ERP file loading with auto-mapping and data cleaning."""
         try:
             self._is_processing = True
             self.clear_error()
@@ -337,13 +337,22 @@ class UploadViewModel(BaseViewModel):
             if not self._validate_file(file_path):
                 return False
             
-            # Load file
-            data = self._load_file(file_path)
-            if data is None:
+            # Use enhanced processor
+            from models.erp_file_processor import ERPFileProcessor
+            processor = ERPFileProcessor()
+            
+            # Process file
+            result = processor.analyze_and_process_file(file_path)
+            
+            if not result['success']:
+                self.error_message = result.get('message', 'File processing failed')
                 return False
             
-            # Validate ERP data structure
-            if not self._validate_erp_data(data):
+            # Get cleaned data
+            data = result['data']
+            
+            if data.empty:
+                self.error_message = "No valid transaction data found after cleaning"
                 return False
             
             # Create ERP ledger model
@@ -354,13 +363,26 @@ class UploadViewModel(BaseViewModel):
             self.erp_source_type = 'file'
             self.erp_data = data
             
-            source_info = f"{Path(file_path).name} ({len(data)} records)"
+            # Enhanced source info
+            analysis = result.get('analysis', {})
+            confidence = analysis.get('confidence', 0)
+            source_info = (f"{Path(file_path).name} "
+                        f"({len(data)} transactions, "
+                        f"{confidence:.1%} mapping confidence)")
             self._erp_source_info = source_info
             
-            # Emit success signals
+            # Emit success signals with enhanced metadata
+            metadata = {
+                'processing_stats': {
+                    'original_rows': result.get('analysis', {}).get('metadata', {}).get('total_rows', 0),
+                    'cleaned_rows': len(data),
+                    'confidence': confidence
+                }
+            }
+            
             self.erp_data_loaded.emit(data, 'file', source_info)
             
-            logger.info(f"ERP file loaded: {file_path} ({len(data)} records)")
+            logger.info(f"ERP file loaded: {file_path} ({len(data)} transactions, {confidence:.1%} confidence)")
             return True
             
         except Exception as e:

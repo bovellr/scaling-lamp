@@ -14,6 +14,8 @@ from PySide6.QtCore import Qt, QDate, QDateTime, Signal
 import pandas as pd
 from datetime import datetime, date
 import logging
+from typing import Dict, Any
+from pathlib import Path
 
 from viewmodels.erp_database_viewmodel import ERPDatabaseViewModel
 from models.data_models import TransactionData
@@ -554,116 +556,263 @@ class ERPDataWidget(QWidget):
             self._analyze_file_structure(file_path)
     
     def _analyze_file_structure(self, file_path):
-        """Analyze file structure and populate column mappings."""
+        """Enhanced file structure analysis - REPLACES existing method completely."""
         try:
-            # Read file to get column names
-            if file_path.endswith('.csv'):
-                df = pd.read_csv(file_path, nrows=0)  # Just headers
-            else:
-                df = pd.read_excel(file_path, nrows=0)
-                
-                # For Excel files, also get sheet names
+            # Use the new enhanced processor instead of pandas directly
+            from models.erp_file_processor import ERPFileProcessor
+            processor = ERPFileProcessor()
+            
+            # Get comprehensive analysis (replaces the old simple pandas approach)
+            analysis = processor._analyze_file_structure(file_path)
+            
+            if not analysis['success']:
+                QMessageBox.warning(self, "File Error", f"Failed to analyze file: {analysis.get('error', 'Unknown error')}")
+                return
+            
+            # Handle Excel files with multiple sheets
+            if analysis.get('metadata', {}).get('file_type') == 'excel':
                 xl_file = pd.ExcelFile(file_path)
                 self.sheet_combo.clear()
                 self.sheet_combo.addItems(xl_file.sheet_names)
                 self.sheet_combo.setVisible(True)
+                
+                # Auto-select recommended sheet if available
+                if analysis.get('sheet_name'):
+                    self.sheet_combo.setCurrentText(analysis['sheet_name'])
             
-            # Update column combo boxes
-            columns = df.columns.tolist()
+            # Store analysis results for later use
+            self.analysis_results = analysis
+            
+            # Update column combo boxes with detected columns
+            columns = analysis.get('columns', [])
             
             for combo in [self.date_column_combo, self.description_column_combo,
-                         self.amount_column_combo, self.reference_column_combo]:
+                        self.amount_column_combo, self.reference_column_combo]:
                 combo.clear()
                 combo.addItem("Select column...", None)
-                combo.addItems(columns)
+                combo.addItems([str(col) for col in columns])
             
-            # Try to auto-detect column mappings
-            self._auto_detect_columns(columns)
+            # Apply enhanced auto-detected mappings (REPLACES _auto_detect_columns)
+            mapping = analysis.get('mapping', {})
+            self._apply_auto_mapping_to_ui(mapping)
+            
+            # Show confidence indicator
+            confidence = analysis.get('confidence', 0)
+            self._update_confidence_display(confidence)
             
             self.process_file_button.setEnabled(True)
             
+            logger.info(f"File structure analyzed: {len(columns)} columns, {confidence:.1%} mapping confidence")
+            
         except Exception as e:
+            logger.error(f"File analysis error: {e}")
             QMessageBox.warning(self, "File Error", f"Failed to analyze file: {str(e)}")
     
-    def _auto_detect_columns(self, columns):
-        """Auto-detect column mappings based on column names."""
-        column_patterns = {
-            'date': ['date', 'transaction_date', 'posting_date', 'trans_date'],
-            'description': ['description', 'narrative', 'details', 'memo'],
-            'amount': ['amount', 'value', 'transaction_amount'],
-            'reference': ['reference', 'ref', 'transaction_ref', 'doc_number', 'cheque_ref']
-        }
+    def _apply_auto_mapping_to_ui(self, mapping: Dict[str, Any]):
+        """Apply auto-detected mapping to UI controls - REPLACES _auto_detect_columns."""
         
-        combos = {
-            'date': self.date_column_combo,
-            'description': self.description_column_combo,
-            'amount': self.amount_column_combo,
-            'reference': self.reference_column_combo
-        }
+        # Handle date mapping (simple single column)
+        if mapping.get('date') is not None:
+            self.date_column_combo.setCurrentIndex(mapping['date'] + 1)
         
-        for field, patterns in column_patterns.items():
-            combo = combos[field]
-            for pattern in patterns:
-                for col in columns:
-                    if pattern.lower() in col.lower():
-                        combo.setCurrentText(col)
-                        break
-                if combo.currentText() != "Select column...":
-                    break
+        # Handle enhanced description mapping (single or combined)
+        desc_config = mapping.get('description')
+        if desc_config:
+            self._update_description_mapping_ui(desc_config)
+        
+        # Handle enhanced amount mapping (single or combined)  
+        amount_config = mapping.get('amount')
+        if amount_config:
+            self._update_amount_mapping_ui(amount_config)
+        
+        # Handle reference mapping (simple single column)
+        if mapping.get('reference') is not None:
+            self.reference_column_combo.setCurrentIndex(mapping['reference'] + 1)
     
+    def _update_confidence_display(self, confidence: float):
+        """Update confidence display in UI."""
+        if not hasattr(self, 'confidence_label'):
+            self.confidence_label = QLabel()
+            # Add to your existing layout - you'll need to determine where
+            # For example, add it to the column mapping group:
+            self.mapping_group.layout().addRow("Confidence:", self.confidence_label)
+        
+        if confidence > 0.7:
+            confidence_color = "green"
+            confidence_text = "High"
+        elif confidence > 0.4:
+            confidence_color = "orange" 
+            confidence_text = "Medium"
+        else:
+            confidence_color = "red"
+            confidence_text = "Low"
+        
+        self.confidence_label.setText(f"{confidence_text} ({confidence:.1%})")
+        self.confidence_label.setStyleSheet(f"color: {confidence_color}; font-weight: bold;")
+
     def _process_erp_file(self):
-        """Process the uploaded ERP file."""
+        """Enhanced ERP file processing - REPLACES existing method completely."""
         try:
             file_path = self.file_path_label.text()
             if not file_path or file_path == "No file selected":
                 QMessageBox.warning(self, "No File", "Please select a file first.")
                 return
             
-            # Get column mappings
-            date_col = self.date_column_combo.currentText()
-            desc_col = self.description_column_combo.currentText()
-            amount_col = self.amount_column_combo.currentText()
-            ref_col = self.reference_column_combo.currentText()
+            # Get sheet name for Excel files
+            sheet_name = None
+            if self.sheet_combo.isVisible() and self.sheet_combo.currentText():
+                sheet_name = self.sheet_combo.currentText()
             
-            if date_col == "Select column..." or desc_col == "Select column..." or amount_col == "Select column...":
-                QMessageBox.warning(self, "Missing Mapping", "Please map the required columns (Date, Description, Amount).")
+            # Use enhanced processor (REPLACES manual pandas processing)
+            from models.erp_file_processor import ERPFileProcessor
+            processor = ERPFileProcessor()
+            
+            # Process file with enhanced auto-mapping (REPLACES manual column mapping)
+            result = processor.analyze_and_process_file(file_path, sheet_name)
+            
+            if not result['success']:
+                QMessageBox.critical(self, "Processing Error", 
+                                f"Failed to process file: {result.get('message', 'Unknown error')}")
                 return
             
-            # Read file
-            read_kwargs = {}
-            if self.has_header_checkbox.isChecked():
-                read_kwargs['header'] = 0
-            else:
-                read_kwargs['header'] = None
+            # Get processed and cleaned data (REPLACES manual cleaning)
+            processed_df = result['data']
+            analysis = result['analysis']
             
-            if file_path.endswith('.csv'):
-                df = pd.read_csv(file_path, **read_kwargs)
-            else:
-                sheet_name = self.sheet_combo.currentText() if self.sheet_combo.isVisible() else 0
-                df = pd.read_excel(file_path, sheet_name=sheet_name, **read_kwargs)
+            if processed_df.empty:
+                QMessageBox.warning(self, "No Data", 
+                                "No valid transaction data found in file after cleaning.")
+                return
             
-            # Convert to TransactionData objects
+            # Convert to TransactionData objects (SAME as before)
             transactions = []
-            for _, row in df.iterrows():
+            for _, row in processed_df.iterrows():
                 try:
                     transaction = TransactionData(
-                        date=str(row[date_col]),
-                        description=str(row[desc_col]),
-                        amount=float(row[amount_col]),
-                        reference=str(row[ref_col]) if ref_col != "Select column..." and pd.notna(row[ref_col]) else None
+                        date=row['Date'].strftime('%Y-%m-%d') if pd.notna(row['Date']) else '',
+                        description=str(row.get('Description', '')),  # Now potentially combined
+                        amount=float(row.get('Amount', 0)),            # Now potentially combined
+                        reference=str(row.get('Reference', '')) if row.get('Reference') else None
                     )
                     transactions.append(transaction)
                 except Exception as e:
-                    continue  # Skip invalid rows
+                    logger.warning(f"Skipping invalid transaction row: {e}")
+                    continue
             
-            # Update ViewModel
+            # Update ViewModel (SAME as before)
             self.viewmodel._erp_transactions = transactions
             self.viewmodel.notify_property_changed('erp_transactions', transactions)
             
-            QMessageBox.information(self, "Success", f"Successfully loaded {len(transactions)} transactions from file.")
+            # Enhanced success message with multi-column details
+            self._show_enhanced_success_message(transactions, analysis, file_path)
+            
+            logger.info(f"ERP file processed: {len(transactions)} transactions loaded")
             
         except Exception as e:
+            logger.error(f"ERP file processing error: {e}")
             QMessageBox.critical(self, "Processing Error", f"Failed to process file: {str(e)}")
+
+    def _show_enhanced_success_message(self, transactions, analysis, file_path):
+        """Show enhanced success message with mapping details."""
+        confidence = analysis.get('confidence', 0)
+        mapping = analysis.get('mapping', {})
+        
+        # Build mapping details string
+        mapping_details = []
+        
+        # Amount mapping details
+        amount_config = mapping.get('amount')
+        if isinstance(amount_config, dict):
+            if amount_config['type'] == 'combined':
+                credits_col = analysis['columns'][amount_config['credits_column']]
+                debits_col = analysis['columns'][amount_config['debits_column']]
+                mapping_details.append(f"• Amount: {credits_col} - {debits_col} (Combined)")
+            elif amount_config['type'] == 'single':
+                amount_col = analysis['columns'][amount_config['column']]
+                mapping_details.append(f"• Amount: {amount_col}")
+        
+        # Description mapping details
+        desc_config = mapping.get('description')
+        if isinstance(desc_config, dict):
+            if desc_config['type'] == 'combined':
+                primary_col = analysis['columns'][desc_config['primary_column']]
+                secondary_cols = desc_config.get('secondary_columns', [])
+                sec_names = [analysis['columns'][sec['index']] for sec in secondary_cols[:2]]
+                if sec_names:
+                    mapping_details.append(f"• Description: {primary_col} + {' + '.join(sec_names)} (Combined)")
+                else:
+                    mapping_details.append(f"• Description: {primary_col}")
+            elif desc_config['type'] == 'single':
+                desc_col = analysis['columns'][desc_config['column']]
+                mapping_details.append(f"• Description: {desc_col}")
+        
+        # Date mapping
+        if mapping.get('date') is not None:
+            date_col = analysis['columns'][mapping['date']]
+            mapping_details.append(f"• Date: {date_col}")
+        
+        mapping_text = "\n".join(mapping_details) if mapping_details else "Basic column mapping applied"
+        
+        QMessageBox.information(
+            self, "Success", 
+            f"Successfully processed ERP file!\n\n"
+            f"• File: {Path(file_path).name}\n"
+            f"• Transactions loaded: {len(transactions)}\n"
+            f"• Mapping confidence: {confidence:.1%}\n\n"
+            f"Column Mapping:\n{mapping_text}\n\n"
+            f"Data is ready for reconciliation."
+        )
+
+    def _update_amount_mapping_ui(self, mapping: Dict[str, Any]):
+        """Update the amount mapping UI to show multi-column configuration."""
+        amount_config = mapping.get('amount')
+        
+        if not amount_config:
+            return
+        
+        if isinstance(amount_config, dict):
+            if amount_config['type'] == 'combined':
+                # Show both credits and debits columns
+                credits_idx = amount_config['credits_column']
+                debits_idx = amount_config['debits_column']
+                
+                # Update the amount combo to show the combination
+                credits_name = self.analysis_results['columns'][credits_idx] if self.analysis_results else f"Column {credits_idx + 1}"
+                debits_name = self.analysis_results['columns'][debits_idx] if self.analysis_results else f"Column {debits_idx + 1}"
+                
+                combo_text = f"{credits_name} - {debits_name} (Combined)"
+                
+                # Add special combined option to amount combo
+                self.amount_column_combo.addItem(combo_text, amount_config)
+                self.amount_column_combo.setCurrentText(combo_text)
+                
+                # Add informational label
+                if not hasattr(self, 'amount_info_label'):
+                    self.amount_info_label = QLabel()
+                    # Insert after amount combo in your layout
+                
+                self.amount_info_label.setText(f"Credits: {credits_name}, Debits: {debits_name}")
+                self.amount_info_label.setStyleSheet("color: #007bff; font-size: 10px; font-style: italic;")
+                self.amount_info_label.setVisible(True)
+                
+            elif amount_config['type'] == 'single':
+                # Single column - normal handling
+                column_idx = amount_config['column']
+                self.amount_column_combo.setCurrentIndex(column_idx + 1)
+                
+                if hasattr(self, 'amount_info_label'):
+                    method_text = {
+                        'direct': 'Values used as-is',
+                        'negate': 'Values negated (Debits)',
+                    }.get(amount_config['method'], '')
+                    
+                    if method_text:
+                        self.amount_info_label.setText(method_text)
+                        self.amount_info_label.setVisible(True)
+        else:
+            # Legacy single index mapping
+            if amount_config is not None:
+                self.amount_column_combo.setCurrentIndex(amount_config + 1)
     
     def _use_data_for_reconciliation(self):
         """Use loaded data for reconciliation."""

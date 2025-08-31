@@ -396,12 +396,20 @@ class MainWindow(QMainWindow):
         return action
 
     def _apply_styles(self):
+        """Apply styles from QSS file - UPDATED to fix combobox issues."""
         qss_path = os.path.join("resources", "styles", "main.qss")
         if os.path.exists(qss_path):
             with open(qss_path, "r") as f:
-                self.centralWidget().setStyleSheet(f.read())
+                # Apply to entire window, not just centralWidget
+                self.setStyleSheet(f.read())  # CHANGED: was self.centralWidget().setStyleSheet()
+        else:
+            logger.warning(f"Stylesheet not found: {qss_path}")
         
-        # Additional tab-specific styling
+        # Set object name for bank account selector (for targeted styling)
+        if hasattr(self, 'combo_bank_account'):
+            self.combo_bank_account.setObjectName("bankAccountSelector")
+        
+        # Keep existing tab-specific styling (UNCHANGED)
         self.tab_widget.setStyleSheet("""
             QTabWidget::pane {
                 border: 1px solid #c0c0c0;
@@ -424,6 +432,7 @@ class MainWindow(QMainWindow):
                 background-color: #e0e0e0;
             }
         """)
+
 
 
     # ==========================================================================
