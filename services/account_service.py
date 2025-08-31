@@ -18,7 +18,7 @@ class AccountService:
         self.logger = logging.getLogger(__name__)
         try:
             self.account_manager = AccountConfigManager(event_bus=event_bus)
-            self.bank_accounts_config = self.account_manager.load_accounts()
+            self.bank_accounts_config = self.account_manager.get_accounts()
             self.logger.info("Dynamic account configuration loaded")
         except Exception as exc:  # pylint: disable=broad-except
             self.logger.warning("Using default account configuration: %s", exc)

@@ -30,9 +30,9 @@ class FileUploadWidget(QWidget):
     file_uploaded = Signal(str, str)  # file_type, file_path
     file_transformed = Signal(object)  # Emits BankStatement when transformation complete
     
-    def __init__(self, parent=None):
+    def __init__(self, viewmodel: Optional[UploadViewModel] = None, parent=None):
         super().__init__(parent)
-        self.viewmodel = UploadViewModel()
+        self.viewmodel = viewmodel if viewmodel is not None else UploadViewModel()
         self.bank_file_path = None
         self.erp_file_path = None
 

@@ -224,7 +224,7 @@ class MainWindow(QMainWindow):
     def _create_file_upload_tab(self):
         """Create the file upload tab"""
         # Create upload widget
-        self.upload_widget = FileUploadWidget()
+        self.upload_widget = FileUploadWidget(viewmodel=self.upload_viewmodel)
         self.upload_widget.file_transformed.connect(self.on_bank_statement_ready)
         
         # Create scroll area for the upload widget
