@@ -36,7 +36,6 @@ build/
 
 # Big data/model dirs (if you have them)
 database/
-data/
 config/
 logs/
 test_data/
