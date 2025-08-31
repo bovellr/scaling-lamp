@@ -193,11 +193,7 @@ class FileUploadWidget(QWidget):
         self.load_erp_btn.clicked.connect(self._load_erp_data)
         self.load_erp_btn.setEnabled(False)
         button_layout.addWidget(self.load_erp_btn)
-
-        self.file_radio = QRadioButton("Upload File") 
-        self.source_button_group.addButton(self.file_radio, 1)
-        self.source_button_group.addButton(self.database_radio, 2)
-        
+               
         # NEW: Combined processing button
         self.process_both_btn = QPushButton("Process Both Sources")
         self.process_both_btn.clicked.connect(self._process_both_sources)
