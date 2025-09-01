@@ -754,7 +754,7 @@ class MainWindow(QMainWindow):
     @Slot(object)
     def on_bank_statement_ready(self, statement):
         """Handle transformed bank statement from upload tab"""
-        self.bank_data = statement
+        self.bank_data = statement.to_dataframe() if statement else None
         self.status_bar.showMessage(
             f"Bank statement ready: {getattr(statement, 'bank_name', 'Statement')}"
         )
