@@ -1,29 +1,30 @@
 {
   "templates": [
     {
-      "name": "NatWest/RBS Bank",
-      "bank_type": "rbs/natwest",
+      "name": "Lloyds Bank",
+      "bank_type": "lloyds", 
       "header_keywords": [
-        "date",
-        "narrative",
+        "posting date",
+        "date", 
         "type",
-        "value",
-        "debit",
-        "credit"
+        "details",
+        "debits", 
+        "credits"
       ],
       "date_patterns": [
-        "\\d{1",
-        "2}\\s+\\w{3}\\s+\\d{4}",
-        "\\d{1",
-        "2}/\\d{1",
-        "2}/\\d{4}",
-        "\\d{4}-\\d{1",
-        "2}-\\d{1",
-        "2}"
+        "\\d{1,2}[-/]\\w{3}[-/]\\d{4}",
+        "\\d{1,2}[-/]\\d{1,2}[-/]\\d{4}"
       ],
-      "skip_keywords": [],
+      "skip_keywords": [
+        "totals",
+        "balance", 
+        "end of report",
+        "closing",
+        "opening"
+      ],
       "column_mapping": {
         "date": [
+          "posting date",
           "date",
           "transaction date"
         ],
@@ -32,14 +33,72 @@
           "transaction type"
         ],
         "description": [
-          "narrative 1",
-          "narrative 2",
+          "details", 
+          "description",
+          "reference"
+        ],
+        "debit": [
+          "debit",
+          "debits", 
+          "payment",
+          "out"
+        ],
+        "credit": [
+          "credit",
+          "credits",
+          "receipt", 
+          "deposit"
+        ]
+      },
+      "description": "Standard Lloyds Bank statement format",
+      "created_by": "system", 
+      "created_date": "2025-09-02T07:24:52.243751",
+      "is_active": true
+    },
+    {
+      "name": "NatWest/RBS Bank",
+      "bank_type": "rbs/natwest",
+      "header_keywords": [
+        "date",
+        "narrative #1",
+        "narrative #2",
+        "type",
+        "value",
+        "debit",
+        "credit"
+      ],
+      "date_patterns": [
+        "\\d{1,2}/\\d{1,2}/\\d{2,4}",
+        "\\d{1,2}-\\d{1,2}-\\d{2,4}",
+        "\\d{4}-\\d{1,2}-\\d{1,2}"
+      ],
+      "skip_keywords": [
+        "Sort Code",
+        "Account Number", 
+        "BIC",
+        "Bank Name"
+      ],
+      "column_mapping": {
+        "date": [
+          "date",
+          "posting date",
+          "transaction date"
+        ],
+        "type": [
+          "type",
+          "transaction type"
+        ],
+        "description": [
+          "narrative #1",
+          "narrative #2",
           "description"
         ],
         "amount": [
           "value",
           "debit",
+          "debits",
           "credit",
+          "credits",
           "amount",
           "transaction amount"
         ]
@@ -49,5 +108,6 @@
       "created_date": "2025-09-02T07:24:52.243751",
       "is_active": true
     }
+    
   ]
 }

@@ -1,5 +1,11 @@
 # SPDX-License-Identifier: LicenseRef-Proprietary
 # Copyright (c) 2025 Arvida Software UK. All rights reserved.
+
+# ============================================================================
+# MAIN WINDOW
+# ============================================================================ 
+
+# views/main_window.py
 """Main application window"""
 
 from PySide6.QtWidgets import (QMainWindow, QWidget, QVBoxLayout, QHBoxLayout,QMenu ,QTabWidget, 

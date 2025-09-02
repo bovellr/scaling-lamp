@@ -59,7 +59,7 @@ class AccountConfigManager:
 
         # Default configuration used when no file exists or parsing fails
         self.default_accounts: Dict[str, Dict[str, Any]] = {
-            "Main Current Account": {
+            "Lloyds Main Account": {
                 "account_number": "12345678",
                 "sort_code": "12-34-56",
                 "transformer": "standard_uk_bank",
