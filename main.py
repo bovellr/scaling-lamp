@@ -14,6 +14,7 @@ from pathlib import Path
 import sys
 
 from PySide6.QtWidgets import QApplication, QMessageBox
+from services.app_container import setup_application_container
 
 # Add project root to path
 project_root = Path(__file__).parent
@@ -39,6 +40,10 @@ def main():
 
         # Create QApplication
         app = QApplication(sys.argv)
+
+        # Setup dependency injection container FIRST
+        setup_application_container()
+
         app.setApplicationName("Bank Reconciliation AI")
         app.setApplicationVersion("1.0.0")
         app.setOrganizationName("Arvida Software UK")

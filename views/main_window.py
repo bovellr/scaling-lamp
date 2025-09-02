@@ -18,6 +18,9 @@ import logging
 import os
 import pandas as pd
 
+from services.app_container import get_config_service, get_account_service, get_upload_viewmodel
+from views.dialogs.account_config_dialog import AccountConfigDialog
+
 from services.data_service import DataService
 from .dialogs.dialog_manager import DialogManager
 from .dialogs.account_config_dialog import AccountConfigDialog
@@ -50,9 +53,20 @@ class MainWindow(QMainWindow):
         
         self.data_service = DataService()
 
+        # Get services from container (no direct instantiation!)
+        self.config_service = get_config_service()
+        self.account_service = get_account_service()
+        self.upload_viewmodel = get_upload_viewmodel()
+
         # Initialize state variables
         self._init_state_variables()
+
+        # UI state
+        self.current_bank_account = None
         self.setup_ui()
+
+        self.setup_account_selector()
+        self.connect_signals()
     
     # State variables
     def _init_state_variables(self):
