@@ -65,7 +65,7 @@ class FileUploadWidget(QWidget):
         self._create_bank_upload_section(layout)
 
         # ERP statement upload group
-        self._create_erp_source_section(layout)
+        #self._create_erp_source_section(layout)
 
         # Transformation group
         self._create_transformation_section(layout)
@@ -78,7 +78,7 @@ class FileUploadWidget(QWidget):
 
     def _create_header(self, parent_layout):
         """Create the header section of the widget."""
-        header_label = QLabel("Bank Statement & ERP Data Import")
+        header_label = QLabel("Bank Statement Import")
         header_font = QFont()
         header_font.setPointSize(14)
         header_font.setBold(True)
@@ -98,10 +98,22 @@ class FileUploadWidget(QWidget):
         template_buttons = QHBoxLayout()
         self.refresh_templates_btn = QPushButton("Refresh Templates")
         self.create_template_btn = QPushButton("Create New Template")
+        self.edit_template_btn = QPushButton("Edit Template")
+        self.delete_template_btn = QPushButton("Delete Template")
+        
         self.refresh_templates_btn.clicked.connect(self._refresh_templates)
         self.create_template_btn.clicked.connect(self._create_template)
+        self.edit_template_btn.clicked.connect(self._edit_template)
+        self.delete_template_btn.clicked.connect(self._delete_template)
+        
+        # Initially disable edit and delete buttons (no template selected)
+        self.edit_template_btn.setEnabled(False)
+        self.delete_template_btn.setEnabled(False)
+        
         template_buttons.addWidget(self.refresh_templates_btn)
         template_buttons.addWidget(self.create_template_btn)
+        template_buttons.addWidget(self.edit_template_btn)
+        template_buttons.addWidget(self.delete_template_btn)
         template_buttons.addStretch()
         template_layout.addLayout(template_buttons)
         
@@ -181,7 +193,7 @@ class FileUploadWidget(QWidget):
 
     def _create_transformation_section(self, parent_layout):
         """Create the transformation section of the widget."""
-        transform_group = QGroupBox("4. Process Data")
+        transform_group = QGroupBox("3. Process Data")
         transform_layout = QVBoxLayout(transform_group)
 
         # Button layout (enhanced )
@@ -193,16 +205,16 @@ class FileUploadWidget(QWidget):
         button_layout.addWidget(self.transform_btn)
         
         # NEW: ERP loading button
-        self.load_erp_btn = QPushButton("Load ERP Data")
-        self.load_erp_btn.clicked.connect(self._load_erp_data)
-        self.load_erp_btn.setEnabled(False)
-        button_layout.addWidget(self.load_erp_btn)
+        #self.load_erp_btn = QPushButton("Load ERP Data")
+        #self.load_erp_btn.clicked.connect(self._load_erp_data)
+        #self.load_erp_btn.setEnabled(False)
+        #button_layout.addWidget(self.load_erp_btn)
                
         # NEW: Combined processing button
-        self.process_both_btn = QPushButton("Process Both Sources")
-        self.process_both_btn.clicked.connect(self._process_both_sources)
-        self.process_both_btn.setEnabled(False)
-        button_layout.addWidget(self.process_both_btn)
+        #self.process_both_btn = QPushButton("Process Both Sources")
+        #self.process_both_btn.clicked.connect(self._process_both_sources)
+        #self.process_both_btn.setEnabled(False)
+        #button_layout.addWidget(self.process_both_btn)
         
         button_layout.addStretch()
         transform_layout.addLayout(button_layout)
@@ -220,7 +232,7 @@ class FileUploadWidget(QWidget):
 
     def _create_results_section(self, parent_layout):
         """Create the results section of the widget."""
-        results_group = QGroupBox("5. Data Summary & Preview")
+        results_group = QGroupBox("4. Data Summary & Preview")
         results_layout = QVBoxLayout(results_group)
 
         # NEW: Summary cards (following your label pattern)
@@ -230,16 +242,16 @@ class FileUploadWidget(QWidget):
         self.bank_summary_label.setStyleSheet("padding: 8px; background-color: #f0f0f0; border: 1px solid #ccc;")
         summary_layout.addWidget(self.bank_summary_label)
         
-        self.erp_summary_label = QLabel("ERP: No data")
-        self.erp_summary_label.setStyleSheet("padding: 8px; background-color: #f0f0f0; border: 1px solid #ccc;")
-        summary_layout.addWidget(self.erp_summary_label)
+        #self.erp_summary_label = QLabel("ERP: No data")
+        #self.erp_summary_label.setStyleSheet("padding: 8px; background-color: #f0f0f0; border: 1px solid #ccc;")
+        #summary_layout.addWidget(self.erp_summary_label)
         
         results_layout.addLayout(summary_layout)
         
         # Existing results text (preserved)
         self.results_text = QTextEdit()
         self.results_text.setReadOnly(True)
-        self.results_text.setMaximumHeight(100)
+        self.results_text.setMaximumHeight(160)
         results_layout.addWidget(self.results_text)
         
         # Existing results table (preserved)
@@ -263,15 +275,15 @@ class FileUploadWidget(QWidget):
         
         # NEW: Clear buttons
         self.clear_bank_btn = QPushButton("Clear Bank")
-        self.clear_erp_btn = QPushButton("Clear ERP")
+        #self.clear_erp_btn = QPushButton("Clear ERP")
         self.clear_bank_btn.clicked.connect(self._clear_bank_data)
-        self.clear_erp_btn.clicked.connect(self._clear_erp_data)
+        #self.clear_erp_btn.clicked.connect(self._clear_erp_data)
         
         button_layout.addWidget(self.use_for_reconciliation_btn)
         button_layout.addWidget(self.export_btn)
         button_layout.addStretch()
         button_layout.addWidget(self.clear_bank_btn)
-        button_layout.addWidget(self.clear_erp_btn)
+        #button_layout.addWidget(self.clear_erp_btn)
         
         parent_layout.addLayout(button_layout)
 
@@ -343,6 +355,10 @@ class FileUploadWidget(QWidget):
             self.results_table.setVisible(True)
             self.use_for_reconciliation_btn.setEnabled(True)
             self.export_btn.setEnabled(True)
+            
+            # Update bank summary with success styling
+            self.bank_summary_label.setText(f"Bank: {len(statement.transactions)} transactions loaded")
+            self.bank_summary_label.setStyleSheet("padding: 8px; background-color: #d4edda; border: 1px solid #c3e6cb; color: #155724; font-weight: bold;")
         else:
             self.results_table.setVisible(False)
             self.use_for_reconciliation_btn.setEnabled(False)
@@ -371,7 +387,6 @@ class FileUploadWidget(QWidget):
             stats = f"""
 Rows processed: {result_info['rows_processed']}
 Rows transformed: {result_info['rows_transformed']}
-Success rate: {(result_info['rows_transformed']/result_info['rows_processed']*100):.1f}%
             """.strip()
             
             if result_info.get('warnings'):
@@ -405,6 +420,11 @@ Success rate: {(result_info['rows_transformed']/result_info['rows_processed']*10
         template = self.template_combo.currentData()
         self.viewmodel.selected_template = template
         self.transform_btn.setEnabled(self._can_transform())
+        
+        # Enable/disable edit and delete buttons based on template selection
+        has_template = template is not None
+        self.edit_template_btn.setEnabled(has_template)
+        self.delete_template_btn.setEnabled(has_template)
     
     def _can_transform(self) -> bool:
         """Check if transformation can be performed."""
@@ -458,6 +478,95 @@ Success rate: {(result_info['rows_transformed']/result_info['rows_processed']*10
                 "Template editor dialog is not available yet.\n"
                 "Templates can be managed through the configuration files."
             )
+    
+    def _edit_template(self):
+        """Open template editing dialog for the selected template."""
+        template = self.template_combo.currentData()
+        if not template:
+            QMessageBox.warning(
+                self, 
+                "No Template Selected", 
+                "Please select a template to edit."
+            )
+            return
+        
+        try:
+            from views.dialogs.template_editor_dialog import TemplateEditorDialog
+            
+            dialog = TemplateEditorDialog(self, template=template)
+            if dialog.exec():
+                self._refresh_templates()
+                # Try to reselect the edited template
+                self._select_template_by_name(template.name)
+        except ImportError:
+            QMessageBox.information(
+                self, 
+                "Feature Unavailable", 
+                "Template editor dialog is not available yet.\n"
+                "Templates can be managed through the configuration files."
+            )
+    
+    def _delete_template(self):
+        """Delete the selected template after confirmation."""
+        template = self.template_combo.currentData()
+        if not template:
+            QMessageBox.warning(
+                self, 
+                "No Template Selected", 
+                "Please select a template to delete."
+            )
+            return
+        
+        # Confirm deletion
+        reply = QMessageBox.question(
+            self, 
+            "Delete Template", 
+            f"Are you sure you want to delete the template '{template.name}'?\n\n"
+            "This action cannot be undone.",
+            QMessageBox.Yes | QMessageBox.No,
+            QMessageBox.No
+        )
+        
+        if reply == QMessageBox.Yes:
+            try:
+                # Check if viewmodel has delete method
+                if hasattr(self.viewmodel, 'delete_template'):
+                    success = self.viewmodel.delete_template(template)
+                    if success:
+                        QMessageBox.information(
+                            self, 
+                            "Template Deleted", 
+                            f"Template '{template.name}' has been deleted successfully."
+                        )
+                        self._refresh_templates()
+                    else:
+                        QMessageBox.critical(
+                            self, 
+                            "Delete Failed", 
+                            f"Failed to delete template '{template.name}'.\n"
+                            f"Error: {getattr(self.viewmodel, 'error_message', 'Unknown error')}"
+                        )
+                else:
+                    QMessageBox.information(
+                        self, 
+                        "Feature Unavailable", 
+                        "Template deletion is not yet implemented.\n"
+                        "Templates can be managed through the configuration files."
+                    )
+            except Exception as e:
+                QMessageBox.critical(
+                    self, 
+                    "Delete Error", 
+                    f"An error occurred while deleting the template:\n{str(e)}"
+                )
+    
+    def _select_template_by_name(self, template_name):
+        """Select a template in the combo box by name."""
+        for i in range(self.template_combo.count()):
+            template = self.template_combo.itemData(i)
+            if template and template.name == template_name:
+                self.template_combo.setCurrentIndex(i)
+                break
     
     def _use_for_reconciliation(self):
         """Signal that this data should be used for reconciliation."""
@@ -646,6 +755,8 @@ Success rate: {(result_info['rows_transformed']/result_info['rows_processed']*10
         self.bank_summary_label.setText("Bank: No data")
         self.bank_summary_label.setStyleSheet("padding: 8px; background-color: #f0f0f0; border: 1px solid #ccc;")
         self.results_table.setVisible(False)
+        self.results_text.clear()  # Clear the results text
+        self.status_label.setText("")  # Clear the status label
         self._update_process_both_button()
     
     def _clear_erp_data(self):
@@ -697,9 +808,8 @@ Success rate: {(result_info['rows_transformed']/result_info['rows_processed']*10
         # Emit new enhanced signal
         self.bank_data_ready.emit(statement, result_info)
         
-        # Update UI
-        self.status_label.setText("✓ Bank statement transformed successfully")
-        self.status_label.setStyleSheet("QLabel { color: green; }")
+        # Note: Status message removed to avoid duplication with MainWindow message
+        # The MainWindow will show the comprehensive "Bank Statement Ready" message
         
         logger.info(f"Bank transformation completed: {len(statement.transactions)} transactions")
     

@@ -12,6 +12,7 @@ import logging
 import os
 import pandas as pd
 
+from services.data_service import DataService
 from .dialogs.dialog_manager import DialogManager
 from .dialogs.account_config_dialog import AccountConfigDialog
 from .widgets.file_upload_widget import FileUploadWidget
@@ -19,6 +20,7 @@ from .widgets.action_buttons_widget import ActionButtonsWidget
 from .widgets.filters_widget import FiltersWidget
 from .widgets.ai_results_widget import AiResultsWidget
 from .widgets.transaction_tables_widget import TransactionTablesWidget
+from .widgets.enhanced_transaction_tables_widget import EnhancedTransactionTablesWidget
 from .widgets.summary_cards_widget import SummaryCardsWidget
 from .widgets.account_export_widget import AccountExportWidget
 from .widgets.reports_widget import ReportsWidget
@@ -39,6 +41,9 @@ class MainWindow(QMainWindow):
         super().__init__()
         self.settings = settings
         self.event_bus = event_bus
+        
+        self.data_service = DataService()
+
         # Initialize state variables
         self._init_state_variables()
         self.setup_ui()
@@ -262,22 +267,49 @@ class MainWindow(QMainWindow):
         layout.setSpacing(15)
         
         # Action buttons section
-        self.action_buttons = ActionButtonsWidget()
-        self.btn_import_bank = self.action_buttons.btn_import_bank
-        self.btn_import_gl = self.action_buttons.btn_import_gl
-        self.btn_auto_match = self.action_buttons.btn_auto_match
-        self.btn_train_model = self.action_buttons.btn_train_model
-        self.btn_import_training = self.action_buttons.btn_import_training
-        self.btn_import_bank.clicked.connect(self.import_bank_statement)
-        self.btn_import_gl.clicked.connect(self.import_ledger_data)
-        self.btn_auto_match.clicked.connect(self.run_reconciliation)
-        self.btn_train_model.clicked.connect(self.train_ai_model)
+        action_group = QGroupBox("Reconciliation Operations")
+        buttons_layout = QHBoxLayout(action_group)
+        
+        # Training buttons
+        self.btn_import_training = QPushButton("Import Training Data")
+        self.btn_train_model = QPushButton("Train AI Model")
         self.btn_import_training.clicked.connect(self.import_training_data)
-        layout.addWidget(self.action_buttons)
+        self.btn_train_model.clicked.connect(self.train_ai_model)
+        
+        # Primary reconciliation button
+        self.btn_auto_match = QPushButton("Auto Reconcile")
+        self.btn_auto_match.setEnabled(False)
+        self.btn_auto_match.setStyleSheet("""
+            QPushButton {
+                background-color: #4CAF50;
+                color: white;
+                font-weight: bold;
+                padding: 12px 24px;
+                border-radius: 6px;
+                font-size: 14px;
+            }
+            QPushButton:hover {
+                background-color: #45a049;
+            }
+            QPushButton:disabled {
+                background-color: #cccccc;
+                color: #666666;
+            }
+        """)
+        self.btn_auto_match.clicked.connect(self.run_reconciliation)
+        
+        # Add buttons to layout in proper order
+        buttons_layout.addWidget(self.btn_train_model)
+        buttons_layout.addWidget(self.btn_import_training)
+        buttons_layout.addStretch()
+        buttons_layout.addWidget(self.btn_auto_match)
+        
+        layout.addWidget(action_group)
 
         # Filters section
         self.filters_widget = FiltersWidget()
         layout.addWidget(self.filters_widget)
+
         self.combo_transaction_type = self.filters_widget.combo_transaction_type
         self.date_from = self.filters_widget.date_from
         self.date_to = self.filters_widget.date_to
@@ -287,6 +319,7 @@ class MainWindow(QMainWindow):
         # AI Results section
         self.ai_results_widget = AiResultsWidget()
         layout.addWidget(self.ai_results_widget)
+
         self.lbl_high = self.ai_results_widget.lbl_high
         self.lbl_med = self.ai_results_widget.lbl_med
         self.lbl_low = self.ai_results_widget.lbl_low
@@ -297,12 +330,12 @@ class MainWindow(QMainWindow):
         self.btn_review_low.clicked.connect(self.review_low_confidence)
         self.btn_export_model.clicked.connect(self.export_ai_model)
         
-        # Transaction tables section
-        self.transaction_tables = TransactionTablesWidget()
+        # Enhanced transaction tables
+        self.transaction_tables = EnhancedTransactionTablesWidget()
+        self.transaction_tables.review_requested.connect(self._open_review_dialog)
+        self.transaction_tables.match_action_requested.connect(self._handle_match_action)
         layout.addWidget(self.transaction_tables)
-        self.table_book = self.transaction_tables.table_book
-        self.table_bank = self.transaction_tables.table_bank
-        
+
         # Add stretch to push everything to top
         layout.addStretch()
         
@@ -499,13 +532,11 @@ class MainWindow(QMainWindow):
         widgets_to_toggle = []
         
         # Add action buttons if they exist
-        if hasattr(self, 'btn_import_bank'):
-            widgets_to_toggle.extend([
-                self.btn_import_bank,
-                self.btn_import_gl, 
-                self.btn_auto_match,
-                self.btn_train_model
-            ])
+        widgets_to_toggle.extend([
+            self.btn_auto_match,
+            self.btn_train_model,
+            self.btn_import_training
+        ])
         
         # Add other widgets as needed
         if hasattr(self, 'btn_export'):
@@ -755,12 +786,15 @@ class MainWindow(QMainWindow):
     def on_bank_statement_ready(self, statement):
         """Handle transformed bank statement from upload tab"""
         self.bank_data = statement.to_dataframe() if statement else None
+        self.data_service.set_bank_data(statement)
+
+        
         self.status_bar.showMessage(
             f"Bank statement ready: {getattr(statement, 'bank_name', 'Statement')}"
         )
         
         # Switch to ERP tab after statement is ready
-        self.tab_widget.setCurrentIndex(1)
+        #self.tab_widget.setCurrentIndex(1)
         
         QMessageBox.information(
             self,
@@ -776,6 +810,7 @@ class MainWindow(QMainWindow):
     def on_erp_data_ready(self, erp_transactions):
         """Handle ERP data being loaded and ready"""
         self.ledger_data = self._transactions_to_dataframe(erp_transactions)
+        self.data_service.set_erp_data(erp_transactions)
     
         self.status_bar.showMessage(
             f"ERP data loaded: {len(erp_transactions)} transactions"
@@ -1054,3 +1089,29 @@ class MainWindow(QMainWindow):
         if file_path:
             self.status_bar.showMessage(f"Report exported to: {Path(file_path).name}")
             logger.info(f"Report exported: {file_path}")
+
+    @Slot(list)
+    def _open_review_dialog(self, matches):
+        """Open review dialog for low confidence matches"""
+        from views.dialogs.low_confidence_review_dialog import LowConfidenceReviewDialog
+        
+        if not matches:
+            QMessageBox.information(self, "Review", "No matches require review.")
+            return
+        
+        review_dialog = LowConfidenceReviewDialog(matches, self)
+        if review_dialog.exec() == review_dialog.Accepted:
+            logger.info(f"Review dialog completed for {len(matches)} matches")
+
+    @Slot(object, str)
+    def _handle_match_action(self, match_or_transaction, action: str):
+        """Handle various match actions"""
+        if action == "view":
+            QMessageBox.information(self, "Match Details", f"Viewing match details")
+        elif action == "edit":
+            QMessageBox.information(self, "Edit Match", "Match editing dialog would open here")
+        elif action == "reject":
+            QMessageBox.information(self, "Reject", "Match rejected")
+        elif action == "accept":
+            QMessageBox.information(self, "Accept", "Match accepted")
+        # Add more actions as needed

@@ -1,6 +1,10 @@
 # SPDX-License-Identifier: LicenseRef-Proprietary
 # Copyright (c) 2025 Arvida Software UK. All rights reserved.
 # !/usr/bin/env python3
+
+# ============================================================================
+# MAIN APPLICATION ENTRY POINT
+# ============================================================================
 """
 Bank Reconciliation AI - Main Application Entry Point
 """
