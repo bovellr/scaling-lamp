@@ -56,3 +56,7 @@ class AccountService:
             for name, acc in DEFAULT_BANK_ACCOUNTS.items()
         }
         return self.config_service.save_bank_accounts(default_accounts)
+    
+    def reload_accounts(self) -> Dict[str, Dict[str, Any]]:
+        """Reload account configurations from storage"""
+        return self.config_service.get_bank_accounts()

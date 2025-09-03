@@ -55,8 +55,8 @@ class MainWindow(QMainWindow):
         
         # Data service for local state management
         self.data_service = DataService()
-
-        # Get services from DI container (SINGLE source of truth)
+      
+         # Get services from DI container (SINGLE source of truth)
         self.config_service = get_config_service()
         self.account_service = get_account_service()
         self.upload_viewmodel = get_upload_viewmodel()
@@ -70,9 +70,8 @@ class MainWindow(QMainWindow):
 
         # UI state
         self.setup_ui()
-        self.connect_signals()
-
-        self.setup_account_selector()
+        
+        #self.setup_account_selector()
         self.connect_signals()
     
     # State variables
@@ -88,7 +87,7 @@ class MainWindow(QMainWindow):
         self.reconciliation_progress = None
         # Account configuration
         self.bank_accounts_config = self.account_service.get_all_accounts()
-        
+
 
     # UI setup
     def setup_ui(self):
@@ -106,8 +105,7 @@ class MainWindow(QMainWindow):
         # Main layout
         self.main_layout = QVBoxLayout(central_widget)
         self.main_layout.setContentsMargins(10, 10, 10, 10)
-        
-        
+       
         # Build menu and toolbar
         self._build_menu_toolbar()
 
@@ -149,8 +147,6 @@ class MainWindow(QMainWindow):
         # ERP widget signals  
         if hasattr(self, 'erp_widget'):
             self.erp_widget.erp_data_loaded.connect(self.on_erp_data_ready)
-
-
         
     def _create_header_with_account_selector(self, layout):
         """Add welcome header with bank account selector"""
@@ -610,7 +606,8 @@ class MainWindow(QMainWindow):
     @Slot()
     def open_account_config_dialog(self):
         """Open the account configuration dialog"""
-        dialog = AccountService(self.bank_accounts_config, self)
+        from .dialogs.account_config_dialog import AccountConfigDialog
+        dialog = AccountConfigDialog(self.bank_accounts_config, self)
         dialog.accounts_updated.connect(self.on_accounts_updated)
         
         if dialog.exec() == QDialog.Accepted:
