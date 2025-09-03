@@ -68,3 +68,13 @@ def test_parse_amount_malformed():
     fp = make_file_processor()
     assert fp._parse_amount("notanumber") == 0.0
     assert fp._parse_amount("") == 0.0
+
+
+def test_find_header_row_with_keywords():
+    df = pd.DataFrame([
+        ["foo", "bar"],
+        ["Date", "Amount"],
+        ["1/1/2024", "100"],
+    ])
+    fp = make_file_processor()
+    assert fp.find_header_row(df, ["date", "amount"]) == 1

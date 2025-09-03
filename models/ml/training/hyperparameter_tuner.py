@@ -49,7 +49,6 @@ class HyperparameterTuner:
     def tune_hyperparameters(model, X: np.ndarray, y: np.ndarray,
                            param_grid: Optional[Dict[str, list]] = None,
                            search_type: str = 'grid',
-                           use_lightgbm_cv: bool = False,
                            cv_folds: int = 5,
                            n_iter: int = 20) -> Tuple[Any, Dict[str, Any]]:
         """Perform hyperparameter tuning."""
@@ -78,13 +77,16 @@ class HyperparameterTuner:
                     n_jobs=-1,
                     random_state=42
                 )
-            elif search_type == 'lightgbm' and use_lightgbm_cv:
-                search = lgb.LGBMClassifier(
-                    model, param_grid,
+            elif search_type == 'lightgbm':
+                if lgb is None:
+                    logger.warning("LightGBM is not installed; skipping tuning")
+                    return model, {}
+                estimator = model if isinstance(model, lgb.LGBMClassifier) else lgb.LGBMClassifier()
+                search = GridSearchCV(
+                    estimator, param_grid,
                     cv=cv_folds,
-                    scoring='binary_logloss',
-                    n_jobs=-1,
-                    random_state=42
+                    scoring='accuracy',
+                    n_jobs=-1
                 )
             else:  # grid search
                 search = GridSearchCV(

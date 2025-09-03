@@ -55,14 +55,13 @@ class ConnectionTestThread(QThread):
             self.progress_update.emit("Testing network connectivity...")
             self.msleep(1000)
             
-            # TODO: Replace with actual cx_Oracle connection test
-            # For now, simulate connection test
+            # Attempt real database connection
             try:
                 try:
                     import oracledb
                 except Exception:
                     import cx_Oracle as oracledb  # type: ignore
-                        
+                                    
             except Exception as e:  # pragma: no cover - import error handling
                 self.result_ready.emit(False, f"Oracle client library not available: {str(e)}")
                 return
@@ -89,8 +88,9 @@ class ConnectionTestThread(QThread):
                 cursor.fetchone()
                 
             except Exception as e:
-                # This would catch actual cx_Oracle exceptions
-                self.result_ready.emit(False, f"Database connection failed: {str(e)}")
+                # This would catch actual Oracle database exceptions
+                error_msg = f"Database connection failed: {e.__class__.__name__}: {e}"
+                self.result_ready.emit(False, error_msg)
                 return
             finally:  # pragma: no cover - cleanup
                 try:
@@ -106,7 +106,8 @@ class ConnectionTestThread(QThread):
             self.result_ready.emit(True, "Connection test successful! Database is accessible.")
 
         except Exception as e:
-            self.result_ready.emit(False, f"Connection test error: {str(e)}")
+            error_msg = f"Connection test error: {e.__class__.__name__}: {e}"
+            self.result_ready.emit(False, error_msg)
 
 class OracleConnectionDialog(QDialog):
     """Enhanced Oracle connection configuration dialog"""

@@ -7,11 +7,12 @@
 
 # models/file_processor.py
 import pandas as pd
-from typing import List, Dict, Any, Tuple, Union, Optional
-from pathlib import Path
+from typing import List, Dict, Any, Tuple, Optional
 import logging
 import re
 from datetime import datetime
+
+from .base_file_processor import BaseFileProcessor
 from .data_models import BankTemplate, BankStatement, TransactionData
 
 
@@ -20,56 +21,13 @@ logger = logging.getLogger(__name__)
 DATE_REGEX = re.compile(r"\b(\d{1,2}[.\/]\d{1,2}(?:[.\/]\d{2,4})?)\b")
 
 
-class FileProcessor:
+class FileProcessor(BaseFileProcessor):
     """Handles file I/O and bank statement parsing."""
     
     def __init__(self, templates_manager):
+        super().__init__()
         self.templates_manager = templates_manager
-    
-    def read_file(self, file_path: Union[str, Path], **kwargs) -> pd.DataFrame:
-        """Read bank statement file with automatic format detection."""
-        file_path = Path(file_path)
-        
-        try:
-            if file_path.suffix.lower() == '.csv':
-                return self._read_csv(file_path, **kwargs)
-            elif file_path.suffix.lower() in ['.xlsx', '.xls']:
-                return self._read_excel(file_path, **kwargs)
-            else:
-                raise ValueError(f"Unsupported file format: {file_path.suffix}")
-        except Exception as e:
-            logger.error(f"Failed to read file {file_path}: {e}")
-            raise
-    
-    def _read_csv(self, file_path: Path, **kwargs) -> pd.DataFrame:
-        """Read CSV file with encoding detection."""
-        encoding = kwargs.get('encoding', 'utf-8')
-        
-        try:
-            return pd.read_csv(file_path, encoding=encoding, header=None)
-        except UnicodeDecodeError:
-            # Try different encodings
-            for fallback_encoding in ['latin-1', 'cp1252', 'iso-8859-1']:
-                try:
-                    return pd.read_csv(file_path, encoding=fallback_encoding, header=None)
-                except UnicodeDecodeError:
-                    continue
-            raise
-    
-    def _read_excel(self, file_path: Path, **kwargs) -> pd.DataFrame:
-        """Read Excel file."""
-        engine = 'openpyxl' if file_path.suffix == '.xlsx' else 'xlrd'
-        try:
-            return pd.read_excel(file_path, engine=engine, header=None)
-        except ImportError as e:
-            logger.error(
-                "Required Excel engine '%s' is not installed for reading '%s': %s",
-                engine,
-                file_path,
-                e,
-            )
-            raise
-    
+     
     def transform_statement(self, df: pd.DataFrame, template: BankTemplate) -> Tuple[BankStatement, Dict[str, Any]]:
         """Transform raw bank statement data using template rules."""
         result_info = {
@@ -86,7 +44,7 @@ class FileProcessor:
         
         try:
             # Find header row
-            header_row_idx = self._find_header_row(df, template)
+            header_row_idx = self.find_header_row(df, template.header_keywords)
             if header_row_idx is None:
                 result_info['message'] = f"Could not find header row for {template.name}"
                 return BankStatement("", None, "", []), result_info
@@ -127,18 +85,7 @@ class FileProcessor:
             result_info['message'] = f"Transformation failed: {str(e)}"
             logger.error(f"Transformation error: {e}")
             return BankStatement("", None, "", []), result_info
-    
-    def _find_header_row(self, df: pd.DataFrame, template: BankTemplate) -> Optional[int]:
-        """Find the header row using template keywords."""
-        for idx in range(min(10, len(df))):
-            row_values = [str(val).lower().strip() if pd.notna(val) else "" for val in df.iloc[idx]]
-            matches = sum(1 for keyword in template.header_keywords 
-                         if any(keyword.lower() in val for val in row_values))
-            
-            if matches >= 2:
-                return idx
-        return None
-    
+   
     def _extract_headers(self, df: pd.DataFrame, header_row_idx: int) -> List[str]:
         """Extract and clean header row while preserving column positions."""
         headers = df.iloc[header_row_idx].fillna("").astype(str).str.strip().str.lower().tolist()

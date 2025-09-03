@@ -16,12 +16,15 @@ from typing import Dict, List, Optional, Tuple, Any
 from datetime import datetime
 import logging
 
+from .base_file_processor import BaseFileProcessor
+
 logger = logging.getLogger(__name__)
 
-class ERPFileProcessor:
+class ERPFileProcessor(BaseFileProcessor):
     """Enhanced ERP file processor for complex bank statements and ERP files."""
     
     def __init__(self):
+        super().__init__()
         # Enhanced column mapping patterns for your Lloyds file
         self.column_patterns = {
             'date': [
@@ -49,19 +52,17 @@ class ERPFileProcessor:
             'additional_details', 'memo2', 'notes', 'comments'
         ]
     
-    def analyze_and_process_file(self, file_path: str, 
-                                sheet_name: Optional[str] = None) -> Dict[str, Any]:
-        """Simplified file analysis and processing for environments without full pandas support."""
+    def analyze_and_process_file(
+        self, file_path: str, sheet_name: Optional[str] = None
+    ) -> Dict[str, Any]:
+        """Simplified file analysis and processing."""
+
         
         try:
-            logger.info(f"Starting analysis of ERP file: {file_path}")
-            
-            try:
-                df = pd.read_excel(file_path, header=0)
-                file_type = 'excel'
-            except Exception:
-                df = pd.read_csv(file_path)
-                file_type = 'csv'
+            logger.info("Starting analysis of ERP file: %s", file_path)
+
+            df = self.read_file(file_path, header=0)
+            file_type = 'csv' if Path(file_path).suffix.lower() == '.csv' else 'excel'
 
             analysis = {
                 'success': True,
@@ -79,8 +80,7 @@ class ERPFileProcessor:
                     'data_start_row': 1
                 }
             }
-
-            
+          
             return {
                 'success': True,
                 'data': df,
@@ -116,7 +116,7 @@ class ERPFileProcessor:
         """Analyze CSV file structure."""
         try:
             # Read first few rows to detect structure
-            sample_df = pd.read_csv(file_path, nrows=10)
+            sample_df = self.read_file(file_path, nrows=10, header=0)
             
             # Assume first row is headers for CSV
             columns = sample_df.columns.tolist()
@@ -155,8 +155,9 @@ class ERPFileProcessor:
                 sheet_name = xl_file.sheet_names[0]  # Use first sheet
             
             # Read first 20 rows to find header structure
-            sample_df = pd.read_excel(file_path, sheet_name=sheet_name, 
-                                    header=None, nrows=20)
+            sample_df = self.read_file(
+                file_path, sheet_name=sheet_name, header=None, nrows=20
+            )
             
             # Find the header row (row with most text values)
             header_row_idx = self._find_header_row(sample_df)
@@ -168,8 +169,9 @@ class ERPFileProcessor:
                 }
             
             # Read file with correct header
-            full_df = pd.read_excel(file_path, sheet_name=sheet_name, 
-                                   header=header_row_idx)
+            full_df = self.read_file(
+                file_path, sheet_name=sheet_name, header=header_row_idx
+            )
             
             # Generate enhanced column mapping
             mapping = self._generate_enhanced_column_mapping(full_df.columns.tolist())
@@ -197,29 +199,7 @@ class ERPFileProcessor:
                 'error': str(e)
             }
     
-    def _find_header_row(self, df: pd.DataFrame) -> Optional[int]:
-        """Find row that contains column headers."""
-        best_row = None
-        max_text_count = 0
-        
-        for idx, row in df.iterrows():
-            text_count = 0
-            non_null_count = 0
-            
-            for val in row:
-                if pd.notna(val):
-                    non_null_count += 1
-                    if isinstance(val, str) and len(val.strip()) > 2:
-                        text_count += 1
-            
-            # Good header row has many text values and reasonable coverage
-            if text_count >= 3 and text_count >= non_null_count * 0.6:
-                if text_count > max_text_count:
-                    max_text_count = text_count
-                    best_row = idx
-        
-        return best_row
-    
+       
     def _generate_enhanced_column_mapping(self, columns: List[str]) -> Dict[str, Any]:
         """Generate enhanced automatic column mapping with multi-column support."""
         mapping = {
@@ -431,14 +411,13 @@ class ERPFileProcessor:
         """Process file data using the enhanced column mapping."""
         try:
             # Read file with correct settings
+            read_kwargs: Dict[str, Any] = {
+                'header': metadata.get('header_row', 0)
+            }
+
             if metadata['file_type'] == 'excel':
-                df = pd.read_excel(
-                    file_path, 
-                    sheet_name=metadata.get('sheet_name'),
-                    header=metadata.get('header_row', 0)
-                )
-            else:
-                df = pd.read_csv(file_path)
+                read_kwargs['sheet_name'] = metadata.get('sheet_name')
+            df = self.read_file(file_path, **read_kwargs)
             
             # Create result DataFrame with mapped columns
             result_df = pd.DataFrame()
