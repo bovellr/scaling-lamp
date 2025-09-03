@@ -23,7 +23,7 @@ logger = logging.getLogger(__name__)
 
 class UploadViewModel(BaseViewModel):
     """ViewModel for file upload and transformation logic."""
-
+    
     # Bank statement signals (enhanced from your existing)
     bank_file_uploaded = Signal(str)                    # file_path
     bank_data_transformed = Signal(object, dict)        # statement, transformation_result
@@ -50,11 +50,13 @@ class UploadViewModel(BaseViewModel):
     erp_source_type_changed = Signal(str)              # 'file' or 'database'
 
 
-    def __init__(self):
+    def __init__(self, config_service=None):
         super().__init__()
         self.template_repository = TemplateRepository()
         self.file_processor = FileProcessor(self)
-        
+
+        # Store config service if provided
+        self.config_service = config_service
         # Enhanced state management
         self._init_bank_properties()
         self._init_erp_properties()
