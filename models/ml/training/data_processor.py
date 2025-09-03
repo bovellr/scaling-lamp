@@ -5,13 +5,13 @@
 # training/data_processor.py
 # ================================
 
-import pandas as pd
 import numpy as np
 from typing import List, Tuple, Dict, Any
-from rapidfuzz.fuzz import token_sort_ratio
+
 import logging
 from datetime import datetime
 from models.ml.training.data_models import TrainingDataset
+from models.ml.feature_utils import compute_transaction_features
 
 logger = logging.getLogger(__name__)
 
@@ -22,29 +22,22 @@ class FeatureExtractor:
     def extract_features_from_feedback(bank_data: Dict, erp_data: Dict) -> List[float]:
         """Extract features from feedback data."""
         try:
-            # Amount difference
-            amount_diff = abs(float(bank_data['Amount']) - float(erp_data['Amount']))
-            
-            # Date difference
-            bank_date = pd.to_datetime(bank_data['Date'])
-            erp_date = pd.to_datetime(erp_data['Date'])
-            date_diff = abs((bank_date - erp_date).days)
-            
-            # Description similarity
-            desc_sim = token_sort_ratio(
-                str(bank_data['Description']), 
-                str(erp_data['Description'])
+            features = compute_transaction_features(
+                bank_data['Amount'],
+                bank_data['Date'],
+                bank_data['Description'],
+                erp_data['Amount'],
+                erp_data['Date'],
+                erp_data['Description'],
             )
             
-            # Signed amount match
-            bank_positive = float(bank_data['Amount']) > 0
-            erp_positive = float(erp_data['Amount']) > 0
-            signed_match = 1 if bank_positive == erp_positive else 0
-            
-            # Same day
-            same_day = 1 if bank_date.date() == erp_date.date() else 0
-            
-            return [amount_diff, date_diff, desc_sim, signed_match, same_day]
+            return [
+                features['amount_diff'],
+                features['date_diff'],
+                features['description_similarity'],
+                features['signed_amount_match'],
+                features['same_day'],
+            ]
             
         except Exception as e:
             logger.error(f"Feature extraction failed: {e}")
@@ -54,25 +47,21 @@ class FeatureExtractor:
     def extract_features_from_transactions(bank_txn, erp_txn) -> List[float]:
         """Extract features from transaction objects."""
         try:
-            # Amount difference
-            amount_diff = abs(bank_txn.amount - erp_txn.amount)
-            
-            # Date difference
-            bank_date = pd.to_datetime(bank_txn.date)
-            erp_date = pd.to_datetime(erp_txn.date)
-            date_diff = abs((bank_date - erp_date).days)
-            
-            # Description similarity
-            desc_sim = token_sort_ratio(bank_txn.description, erp_txn.description)
-            
-            # Signed amount match
-            signed_match = 1 if (bank_txn.amount > 0) == (erp_txn.amount > 0) else 0
-            
-            # Same day
-            same_day = 1 if bank_date.date() == erp_date.date() else 0
-            
-            return [amount_diff, date_diff, desc_sim, signed_match, same_day]
-            
+            features = compute_transaction_features(
+                bank_txn.amount,
+                bank_txn.date,
+                bank_txn.description,
+                erp_txn.amount,
+                erp_txn.date,
+                erp_txn.description,
+            )
+            return [
+                features['amount_diff'],
+                features['date_diff'],
+                features['description_similarity'],
+                features['signed_amount_match'],
+                features['same_day'],
+            ]            
         except Exception as e:
             logger.error(f"Transaction feature extraction failed: {e}")
             raise

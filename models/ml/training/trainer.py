@@ -16,14 +16,14 @@ The training model becomes MORE important in the enhanced version because:
 """
 
 from typing import List, Dict, Optional, Tuple, Any
-from dataclasses import dataclass, field
 from datetime import datetime
-import pandas as pd
+
 import numpy as np
 import logging
 import joblib
 import json
 from pathlib import Path
+from models.ml.feature_utils import compute_transaction_features
 
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.model_selection import train_test_split, cross_val_score
@@ -33,109 +33,14 @@ from sklearn.preprocessing import StandardScaler
 from models.data_models import BankStatement, TransactionData, MatchResult
 from models.database import AuditRepository
 from viewmodels.base_viewmodel import BaseViewModel
+from .data_models import (
+    TrainingDataSource,
+    TrainingDataset,
+    ModelTrainingConfig,
+)
 
 logger = logging.getLogger(__name__)
 
-# ================================
-# ENHANCED TRAINING DATA MODELS
-# ================================
-
-@dataclass
-class TrainingDataSource:
-    """Represents a source of training data."""
-    source_id: str
-    source_type: str  # 'file_upload', 'bank_api', 'erp_database', 'manual_feedback'
-    bank_type: str    # 'lloyds', 'natwest', 'generic', etc.
-    data_format: str  # 'csv', 'api_json', 'database_query'
-    created_date: str = field(default_factory=lambda: datetime.now().isoformat())
-    sample_count: int = 0
-    quality_score: float = 0.0
-    is_validated: bool = False
-
-@dataclass 
-class TrainingDataset:
-    """Enhanced training dataset with metadata."""
-    dataset_id: str
-    name: str
-    description: str
-    sources: List[TrainingDataSource] = field(default_factory=list)
-    total_samples: int = 0
-    positive_samples: int = 0
-    negative_samples: int = 0
-    feature_columns: List[str] = field(default_factory=list)
-    data_quality_metrics: Dict[str, float] = field(default_factory=dict)
-    created_date: str = field(default_factory=lambda: datetime.now().isoformat())
-    last_updated: str = field(default_factory=lambda: datetime.now().isoformat())
-    version: int = 1
-
-@dataclass
-class ModelTrainingConfig:
-    """Configuration for model training."""
-    
-    def __init__(self, model_type, hyperparameters=None):
-        self.model_type = model_type   # 'random_forest', 'xgboost', 'lightgbm'
-        self.hyperparameters = hyperparameters or {}
-        self.cross_validation_folds = 5
-        self.test_size = 0.2
-        self.use_feature_scaling = True
-        self.feature_selection = True
-        self.class_balancing = "auto"  # 'auto', 'balanced', 'none'
-   
-        # ✅ New tuning-related attributes
-        self.use_random_search = False
-        self.random_search_iters = 20
-        self.search_hyperparameters = None
-        self.scoring_metric = 'f1'
-
-    # ⭐ NEW! Add XGBoost and LightGBM   
-    def create_model(self):
-        """Create model instance based on type."""
-        if self.model_type == "xgboost":
-            try:
-                import xgboost as xgb
-                params = self.hyperparameters or {
-                    'n_estimators': 200,
-                    'max_depth': 6,
-                    'learning_rate': 0.1,
-                    'subsample': 0.8,
-                    'colsample_bytree': 0.8,
-                    'scale_pos_weight': 1,
-                    'random_state': 42,
-                    'eval_metric': 'logloss'
-                }
-                return xgb.XGBClassifier(**params)
-            except ImportError:
-                logger.error("XGBoost not installed. Please install it to use this model.")
-                return None
-        elif self.model_type == "lightgbm":
-            try:
-                import lightgbm as lgb
-                params = self.hyperparameters or {
-                    'objective': 'binary',
-                    'metric': 'binary_logloss',
-                    'boosting_type': 'gbdt',
-                    'learning_rate': 0.05,
-                    'num_leaves': 31,
-                    'max_depth': -1,
-                    'class_weight': 'balanced',
-                    'verbosity': -1
-                }
-                return lgb.LGBMClassifier(**params)
-            except ImportError:
-                logger.error("LightGBM not installed. Please install it to use this model.")
-                return None
-        else:  # random_forest
-            params = self.hyperparameters or {
-                'n_estimators': 100,
-                'max_depth': 10,
-                'class_weight': 'balanced',
-                'min_samples_split': 5,
-                'min_samples_leaf': 5,         # Prevent overfitting
-                'max_features': 'sqrt',
-                'random_state': 42,
-                'n_jobs': -1
-            }
-            return RandomForestClassifier(**params)
 
 # ================================
 # ENHANCED TRAINING SERVICE
@@ -493,52 +398,40 @@ class TrainingService:
     
     def _extract_features_from_feedback(self, bank_data: Dict, erp_data: Dict) -> List[float]:
         """Extract features from feedback data."""
-        from rapidfuzz.fuzz import token_sort_ratio
-        
-        # Amount difference
-        amount_diff = abs(float(bank_data['Amount']) - float(erp_data['Amount']))
-        
-        # Date difference
-        bank_date = pd.to_datetime(bank_data['Date'])
-        erp_date = pd.to_datetime(erp_data['Date'])
-        date_diff = abs((bank_date - erp_date).days)
-        
-        # Description similarity
-        desc_sim = token_sort_ratio(str(bank_data['Description']), str(erp_data['Description']))
-        
-        # Signed amount match
-        bank_positive = float(bank_data['Amount']) > 0
-        erp_positive = float(erp_data['Amount']) > 0
-        signed_match = 1 if bank_positive == erp_positive else 0
-        
-        # Same day
-        same_day = 1 if bank_date.date() == erp_date.date() else 0
-        
-        return [amount_diff, date_diff, desc_sim, signed_match, same_day]
+        features = compute_transaction_features(
+            bank_data['Amount'],
+            bank_data['Date'],
+            bank_data['Description'],
+            erp_data['Amount'],
+            erp_data['Date'],
+            erp_data['Description'],
+        )
+        return [
+            features['amount_diff'],
+            features['date_diff'],
+            features['description_similarity'],
+            features['signed_amount_match'],
+            features['same_day'],
+        ]
     
     def _generate_transaction_features(self, bank_txn: TransactionData, 
                                      erp_txn: TransactionData) -> List[float]:
         """Generate features from transaction objects."""
-        from rapidfuzz.fuzz import token_sort_ratio
-        
-        # Amount difference
-        amount_diff = abs(bank_txn.amount - erp_txn.amount)
-        
-        # Date difference
-        bank_date = pd.to_datetime(bank_txn.date)
-        erp_date = pd.to_datetime(erp_txn.date)
-        date_diff = abs((bank_date - erp_date).days)
-        
-        # Description similarity
-        desc_sim = token_sort_ratio(bank_txn.description, erp_txn.description)
-        
-        # Signed amount match
-        signed_match = 1 if (bank_txn.amount > 0) == (erp_txn.amount > 0) else 0
-        
-        # Same day
-        same_day = 1 if bank_date.date() == erp_date.date() else 0
-        
-        return [amount_diff, date_diff, desc_sim, signed_match, same_day]
+        features = compute_transaction_features(
+            bank_txn.amount,
+            bank_txn.date,
+            bank_txn.description,
+            erp_txn.amount,
+            erp_txn.date,
+            erp_txn.description,
+        )
+        return [
+            features['amount_diff'],
+            features['date_diff'],
+            features['description_similarity'],
+            features['signed_amount_match'],
+            features['same_day'],
+        ]
     
     def _calculate_data_quality(self, features_list: List[List[float]], 
                                labels_list: List[int]) -> float:

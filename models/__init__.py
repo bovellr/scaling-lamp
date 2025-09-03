@@ -8,7 +8,11 @@ from .data_models import (
     Transaction, BankTransaction, ERPTransaction, 
     TransactionMatch, ReconciliationReport
 )
-from .ml_engine import MLEngine
+
+try:  # Optional MLEngine import
+    from .ml_engine import MLEngine  # type: ignore
+except Exception:  # pragma: no cover - optional
+    MLEngine = None  # type: ignore
 
 __all__ = [
     'Transaction', 'BankTransaction', 'ERPTransaction',

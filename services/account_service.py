@@ -14,6 +14,7 @@ No more duplicate default accounts!
 import logging
 from typing import Dict, Any, Optional
 from .config_service import ConfigurationService
+from config.defaults import DEFAULT_BANK_ACCOUNTS
 
 class AccountService:
     """Simplified service that delegates to configuration service"""
@@ -39,3 +40,19 @@ class AccountService:
     def update_accounts(self, accounts: Dict[str, Dict[str, Any]]) -> bool:
         """Update account configurations"""
         return self.config_service.save_bank_accounts(accounts)
+
+    def reset_to_defaults(self) -> bool:
+        """Reset account configurations to default values"""
+        default_accounts = {
+            name: {
+                "account_number": acc.account_number,
+                "sort_code": acc.sort_code,
+                "transformer": acc.transformer,
+                "erp_account_code": acc.erp_account_code,
+                "erp_account_name": acc.erp_account_name,
+                "statement_format": acc.statement_format,
+                "currency": acc.currency,
+            }
+            for name, acc in DEFAULT_BANK_ACCOUNTS.items()
+        }
+        return self.config_service.save_bank_accounts(default_accounts)

@@ -18,25 +18,27 @@ import logging
 import os
 import pandas as pd
 
+# Import from dependency injection container
 from services.app_container import get_config_service, get_account_service, get_upload_viewmodel
-from views.dialogs.account_config_dialog import AccountConfigDialog
 
+# Import other dependencies
 from services.data_service import DataService
 from .dialogs.dialog_manager import DialogManager
-from .dialogs.account_config_dialog import AccountConfigDialog
+
+
+# Import widgets
 from .widgets.file_upload_widget import FileUploadWidget
 from .widgets.action_buttons_widget import ActionButtonsWidget
 from .widgets.filters_widget import FiltersWidget
 from .widgets.ai_results_widget import AiResultsWidget
-from .widgets.transaction_tables_widget import TransactionTablesWidget
 from .widgets.enhanced_transaction_tables_widget import EnhancedTransactionTablesWidget
 from .widgets.summary_cards_widget import SummaryCardsWidget
 from .widgets.account_export_widget import AccountExportWidget
 from .widgets.reports_widget import ReportsWidget
 from .widgets.erp_data_widget import ERPDataWidget
 
+# Import ViewModels (only for local state, services come from DI)
 from viewmodels.erp_database_viewmodel import ERPDatabaseViewModel
-from viewmodels.upload_viewmodel import UploadViewModel
 from viewmodels.matching_viewmodel import MatchingViewModel
 from models.data_models import TransactionData
 from services.account_service import AccountService
@@ -51,19 +53,24 @@ class MainWindow(QMainWindow):
         self.settings = settings
         self.event_bus = event_bus
         
+        # Data service for local state management
         self.data_service = DataService()
 
-        # Get services from container (no direct instantiation!)
+        # Get services from DI container (SINGLE source of truth)
         self.config_service = get_config_service()
         self.account_service = get_account_service()
         self.upload_viewmodel = get_upload_viewmodel()
+
+        # Local ViewModels (not managed by DI)
+        self.erp_viewmodel = ERPDatabaseViewModel()
+        self.matching_viewmodel = MatchingViewModel()
 
         # Initialize state variables
         self._init_state_variables()
 
         # UI state
-        self.current_bank_account = None
         self.setup_ui()
+        self.connect_signals()
 
         self.setup_account_selector()
         self.connect_signals()
@@ -71,6 +78,7 @@ class MainWindow(QMainWindow):
     # State variables
     def _init_state_variables(self):
         """Initialize state variables"""
+        self.current_bank_account = None
         self.bank_data = None
         self.ledger_data = None
         self.preview_data = None
@@ -78,19 +86,9 @@ class MainWindow(QMainWindow):
         self.reconciliation_results = None
         self.reconciliation_status = None
         self.reconciliation_progress = None
+        # Account configuration
+        self.bank_accounts_config = self.account_service.get_all_accounts()
         
-        # ViewModels
-        self.erp_viewmodel = ERPDatabaseViewModel()
-        self.upload_viewmodel = UploadViewModel()
-        self.matching_viewmodel = MatchingViewModel()
-
-        # Account configuration service
-        self.account_service = AccountService(event_bus=self.event_bus)
-        self.account_manager = self.account_service.account_manager
-        self.bank_accounts_config = self.account_service.bank_accounts_config
-
-        # Current selected account
-        self.current_bank_account = None
 
     # UI setup
     def setup_ui(self):
@@ -100,8 +98,7 @@ class MainWindow(QMainWindow):
         
         # Dialog handler
         self.dialog_manager = DialogManager(self)
-       
-        
+    
         # Create main widget and layout
         central_widget = QWidget()
         self.setCentralWidget(central_widget)
@@ -138,6 +135,22 @@ class MainWindow(QMainWindow):
 
         # Apply styles
         self._apply_styles()
+
+    def connect_signals(self):
+        """Connect all signal handlers"""
+        # Account selector signals
+        if hasattr(self, 'combo_bank_account'):
+            self.combo_bank_account.currentTextChanged.connect(self.on_bank_account_changed)
+        
+        # Upload widget signals
+        if hasattr(self, 'upload_widget'):
+            self.upload_widget.file_transformed.connect(self.on_bank_statement_ready)
+        
+        # ERP widget signals  
+        if hasattr(self, 'erp_widget'):
+            self.erp_widget.erp_data_loaded.connect(self.on_erp_data_ready)
+
+
         
     def _create_header_with_account_selector(self, layout):
         """Add welcome header with bank account selector"""
@@ -597,7 +610,7 @@ class MainWindow(QMainWindow):
     @Slot()
     def open_account_config_dialog(self):
         """Open the account configuration dialog"""
-        dialog = AccountConfigDialog(self.bank_accounts_config, self)
+        dialog = AccountService(self.bank_accounts_config, self)
         dialog.accounts_updated.connect(self.on_accounts_updated)
         
         if dialog.exec() == QDialog.Accepted:
@@ -610,7 +623,7 @@ class MainWindow(QMainWindow):
         """Handle updated account configuration"""
         try:
             # Save to file
-            if self.account_manager.save_accounts(new_accounts_config):
+            if self.account_service.update_accounts(new_accounts_config):
                 # Update internal configuration
                 self.bank_accounts_config = new_accounts_config
                 
@@ -666,7 +679,7 @@ class MainWindow(QMainWindow):
         """Refresh account list from file"""
         try:
             # Reload from file
-            self.bank_accounts_config = self.account_manager.load_accounts()
+            self.bank_accounts_config = self.account_service.reload_accounts()
             
             # Refresh selector
             self.refresh_account_selector()
@@ -724,7 +737,7 @@ class MainWindow(QMainWindow):
                 self.bank_accounts_config.update(imported_config)
                 
                 # Save merged configuration
-                if self.account_manager.save_accounts(self.bank_accounts_config):
+                if self.account_service.update_accounts(self.bank_accounts_config):
                     self.refresh_account_selector()
                     
                     QMessageBox.information(
@@ -781,12 +794,9 @@ class MainWindow(QMainWindow):
         
         if reply == QMessageBox.Yes:
             try:
-                # Load default configuration
-                default_config = self.account_manager.default_accounts.copy()
-                
-                # Save defaults
-                if self.account_manager.save_accounts(default_config):
-                    self.bank_accounts_config = default_config
+                # Reset to defaults via service
+                if self.account_service.reset_to_defaults():
+                    self.bank_accounts_config = self.account_service.get_all_accounts()
                     self.refresh_account_selector()
                     
                     QMessageBox.information(
@@ -883,7 +893,7 @@ class MainWindow(QMainWindow):
             )
             return
         
-        account_config = self.account_service.get_current_account_config(self.current_bank_account)
+        account_config = self.account_service.get_account_config(self.current_bank_account)
         transformer = self.account_service.get_statement_transformer(self.current_bank_account)
         
         file_path, _ = QFileDialog.getOpenFileName(
@@ -949,8 +959,8 @@ class MainWindow(QMainWindow):
             )
             return
         
-        account_config = self.account_service.get_current_account_config(self.current_bank_account)
-        erp_account_code = self.account_service.get_erp_account_code(self.current_bank_account)
+        account_config = self.account_service.get_account_config(self.current_bank_account)
+        erp_account_code = account_config.get('erp_account_code') if account_config else None
         
         file_path, _ = QFileDialog.getOpenFileName(
             self, f"Import Ledger Data - {account_config['erp_account_name']}", "",
@@ -1015,7 +1025,7 @@ class MainWindow(QMainWindow):
             )
             return
         
-        account_config = self.account_service.get_current_account_config(self.current_bank_account)
+        account_config = self.account_service.get_account_config(self.current_bank_account)
         
         # Check if data has been imported
         if self.bank_data is None or self.ledger_data is None:

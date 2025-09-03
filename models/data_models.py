@@ -14,11 +14,14 @@ from dataclasses import dataclass, field, asdict
 from typing import Dict, List, Optional, Any, Tuple
 from enum import Enum
 from datetime import datetime
-import pandas as pd
 import re
 import logging
 from pathlib import Path
 
+try:  # Optional dependency
+    import pandas as pd  # type: ignore
+except Exception:  # pragma: no cover - optional
+    pd = None
 
 # Configure logging
 logger = logging.getLogger(__name__)
@@ -60,8 +63,10 @@ class BankStatement:
     transactions: List[TransactionData]
     metadata: Dict[str, Any] = field(default_factory=dict)
     
-    def to_dataframe(self) -> pd.DataFrame:
+    def to_dataframe(self):
         """Convert to pandas DataFrame for processing."""
+        if pd is None:
+            raise ImportError("pandas is required for to_dataframe")
         return pd.DataFrame([t.to_dict() for t in self.transactions])
 
 @dataclass
