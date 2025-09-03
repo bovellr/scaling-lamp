@@ -10,6 +10,10 @@ from typing import List, Dict, Optional, Any
 from dataclasses import dataclass, field
 from datetime import datetime
 
+import logging
+
+logger = logging.getLogger(__name__)
+
 @dataclass
 class TrainingDataSource:
     """Represents a source of training data."""
@@ -53,6 +57,14 @@ class ModelTrainingConfig:
     random_search_iters: int = 20
     search_hyperparameters: Optional[Dict[str, Any]] = None
     scoring_metric: str = "f1"
+
+    def create_model(self):
+        """Create a model instance based on this configuration."""
+        # Lazy import to avoid heavy dependencies when not needed
+        from .model_factory import ModelFactory
+
+        return ModelFactory.create_model(self)
+
 
 @dataclass
 class TrainingResult:

@@ -2,7 +2,6 @@ import sys
 from pathlib import Path
 from datetime import datetime, timedelta
 from unittest.mock import MagicMock, patch
-import types
 
 import pytest
 
@@ -10,18 +9,9 @@ import pytest
 PROJECT_ROOT = Path(__file__).parent.parent
 sys.path.insert(0, str(PROJECT_ROOT))
 
-# Stub heavy training module to avoid optional dependencies during import
-trainer_stub = types.ModuleType("models.ml.training.trainer")
-class ModelTrainingConfig:  # pragma: no cover - simple placeholder
-    pass
-class TrainingDataset:  # pragma: no cover - simple placeholder
-    pass
-class TrainingService:  # pragma: no cover - simple placeholder
-    pass
-trainer_stub.ModelTrainingConfig = ModelTrainingConfig
-trainer_stub.TrainingDataset = TrainingDataset
-trainer_stub.TrainingService = TrainingService
-sys.modules.setdefault("models.ml.training.trainer", trainer_stub)
+from conftest import stub_training_modules
+
+stub_training_modules()
 
 from models.ml_engine import MLEngine
 from models.data_models import Transaction, TransactionMatch, MatchStatus

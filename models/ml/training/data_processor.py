@@ -9,6 +9,7 @@ import numpy as np
 from typing import List, Tuple, Dict, Any
 
 import logging
+from dataclasses import dataclass, field
 from datetime import datetime
 from models.ml.training.data_models import TrainingDataset
 from models.ml.feature_utils import compute_transaction_features
@@ -130,12 +131,12 @@ class DataQualityAnalyzer:
             "feature_ranges": feature_ranges
         }
 
+@dataclass
 class DatasetBuilder:
     """Builds training datasets from various sources."""
     
-    def __init__(self):
-        self.feature_extractor = FeatureExtractor()
-        self.quality_analyzer = DataQualityAnalyzer()
+    feature_extractor: FeatureExtractor = field(default_factory=FeatureExtractor)
+    quality_analyzer: DataQualityAnalyzer = field(default_factory=DataQualityAnalyzer)
     
     def build_from_feedback(self, feedback_data: List[Dict], 
                            dataset_name: str) -> Tuple[TrainingDataset, List[List[float]], List[int]]:

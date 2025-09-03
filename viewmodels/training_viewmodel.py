@@ -11,11 +11,11 @@ import logging
 from PySide6.QtCore import QObject, Signal, Property, QThread, QTimer
 from PySide6.QtWidgets import QApplication
 
-from models.ml.training.training_orchestrator import TrainingOrchestrator 
-from models.ml.training.data_models import (
+from models.ml.training import (
     ModelTrainingConfig,
     TrainingResult,
-    TrainingDataset
+    TrainingDataset,
+    TrainingOrchestrator
 )
 from viewmodels.base_viewmodel import BaseViewModel
 

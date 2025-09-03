@@ -12,13 +12,13 @@ import joblib
 import json
 import numpy as np
 from datetime import datetime
+from sklearn.preprocessing import StandardScaler
 
 # Import from the training package __init__.py
 from . import (
     TrainingDataset, 
-    ModelTrainingConfig, 
+    ModelTrainingConfig,
     DatasetBuilder,
-    ModelFactory,
     CrossValidator,
     HyperparameterTuner,
     SelfLearningManager,
@@ -35,7 +35,6 @@ class TrainingOrchestrator:
         
         # Initialize components
         self.dataset_builder = DatasetBuilder()
-        self.model_factory = ModelFactory()
         self.cross_validator = CrossValidator()
         self.hyperparameter_tuner = HyperparameterTuner()
         self.self_learning_manager = SelfLearningManager()
@@ -74,8 +73,8 @@ class TrainingOrchestrator:
             y = np.array(labels, dtype=np.int32)
             
             # 4. Create model and scaler
-            model = self.model_factory.create_model(config)
-            scaler = self.model_factory.create_scaler(config)
+            model = config.create_model()
+            scaler = StandardScaler() if config.use_feature_scaling else None
             
             # 5. Scale features if needed
             if scaler:

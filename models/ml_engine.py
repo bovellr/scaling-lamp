@@ -41,7 +41,8 @@ from typing import List, Tuple, Optional, Dict
 import logging
 from pathlib import Path
 from .data_models import Transaction, TransactionMatch, MatchStatus
-from .ml.training.trainer import ModelTrainingConfig, TrainingDataset, TrainingService
+from .ml.training.data_models import ModelTrainingConfig, TrainingDataset
+from .ml.training.trainer import TrainingService
 from .ml.feature_utils import compute_transaction_features
 
 

@@ -25,9 +25,8 @@ import json
 from pathlib import Path
 from models.ml.feature_utils import compute_transaction_features
 
-from sklearn.ensemble import RandomForestClassifier
 from sklearn.model_selection import train_test_split, cross_val_score
-from sklearn.metrics import classification_report, accuracy_score, confusion_matrix
+from sklearn.metrics import classification_report, confusion_matrix
 from sklearn.preprocessing import StandardScaler
 
 from models.data_models import BankStatement, TransactionData, MatchResult
@@ -255,9 +254,9 @@ class TrainingService:
         
         return merged_dataset
     
-    def train_enhanced_model(self, dataset_id: str, config: ModelTrainingConfig) -> Dict[str, Any]:
-        """Train enhanced model with advanced ML techniques."""
-        logger.info(f"Training enhanced model with dataset {dataset_id}")
+    def train_from_dataset(self, dataset_id: str, config: ModelTrainingConfig) -> Dict[str, Any]:
+        """Train model using a stored training dataset."""
+        logger.info(f"Training model with dataset {dataset_id}")
         
         if dataset_id not in self.training_datasets:
             raise ValueError(f"Dataset {dataset_id} not found")
@@ -287,7 +286,7 @@ class TrainingService:
         )
         
         # Create model based on config
-        model = self._create_model(config)
+        model = config.create_model()
         
         from sklearn.model_selection import RandomizedSearchCV
         
@@ -381,21 +380,7 @@ class TrainingService:
         
         logger.info(f"Model training complete: {test_accuracy:.3f} test accuracy")
         return model_version
-    
-    def _create_model(self, config: ModelTrainingConfig):
-        """Create ML model based on configuration."""
-        if config.model_type == "random_forest":
-            return RandomForestClassifier(**config.hyperparameters)
-        elif config.model_type == "xgboost":
-            try:
-                import xgboost as xgb
-                return xgb.XGBClassifier(**config.hyperparameters)
-            except ImportError:
-                logger.warning("XGBoost not available, falling back to RandomForest")
-                return RandomForestClassifier(**config.hyperparameters)
-        else:
-            raise ValueError(f"Unsupported model type: {config.model_type}")
-    
+      
     def _extract_features_from_feedback(self, bank_data: Dict, erp_data: Dict) -> List[float]:
         """Extract features from feedback data."""
         features = compute_transaction_features(
