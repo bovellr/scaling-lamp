@@ -809,13 +809,12 @@ class MainWindow(QMainWindow):
                     f"Failed to reset account configuration:\n{str(e)}"
                 )    
 
-    @Slot(object)
-    def on_bank_statement_ready(self, statement):
+    @Slot(object, dict)
+    def on_bank_statement_ready(self, statement, result_info):
         """Handle transformed bank statement from upload tab"""
         self.bank_data = statement.to_dataframe() if statement else None
         self.data_service.set_bank_data(statement)
-
-        
+       
         self.status_bar.showMessage(
             f"Bank statement ready: {getattr(statement, 'bank_name', 'Statement')}"
         )
@@ -827,7 +826,7 @@ class MainWindow(QMainWindow):
             self,
             "Bank Statement Ready",
             "Bank statement loaded.\n"
-            "Please import ERP ledger data and click 'Auto Reconcile' to begin.",
+            "Please import ERP ledger data.",
         )
         
         self.update_reconcile_button_state()

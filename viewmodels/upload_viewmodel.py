@@ -300,7 +300,7 @@ class UploadViewModel(BaseViewModel):
             
             # Try to match headers with templates
             if sample_data is not None:
-                columns = [col.lower().strip() for col in sample_data.columns]
+                columns = [str(col).lower().strip() for col in sample_data.columns]
                 
                 best_match = None
                 best_score = 0
@@ -320,7 +320,7 @@ class UploadViewModel(BaseViewModel):
     
     def _calculate_template_match_score(self, columns: List[str], template: BankTemplate) -> float:
         """Calculate how well a template matches the file columns"""
-        header_keywords = [kw.lower().strip() for kw in template.header_keywords]
+        header_keywords = [str(kw).lower().strip() for kw in template.header_keywords]
         matches = sum(1 for col in columns if any(keyword in col for keyword in header_keywords))
         return matches / len(header_keywords) if header_keywords else 0
     
