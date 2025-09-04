@@ -29,23 +29,14 @@ class FileUploadWidget(QWidget):
     # Signals - using PySide6 Signal
     file_uploaded = Signal(str, str)  # file_type, file_path
     file_transformed = Signal(object)  # Emits BankStatement when transformation complete
-    bank_data_ready = Signal(object, dict)  # statement, result_info
     processing_error = Signal(str, str)     # source_type, error_message  
-    erp_data_ready = Signal(object, str, str)  # data, source_type, source_info
-    both_sources_ready = Signal(object, object, dict)  # bank_transactions, erp_transactions, metadata
+    bank_data_ready = Signal(object, dict)  # statement, result_info
     
     def __init__(self, viewmodel: Optional[UploadViewModel] = None, parent=None):
         super().__init__(parent)
         self.viewmodel = viewmodel if viewmodel is not None else UploadViewModel()
         self.bank_file_path = None
-        self.erp_file_path = None
-
-        # New state variables for ERP functionality
-        self.erp_source_type = 'file'  # 'file' or 'database'
-        self._erp_service = None
-        self._oracle_connection_name = None
-        self._oracle_query_name = None
-
+        
         self._setup_ui()
         self._bind_viewmodel()
 
@@ -63,9 +54,6 @@ class FileUploadWidget(QWidget):
 
         # Bank statement upload group
         self._create_bank_upload_section(layout)
-
-        # ERP statement upload group
-        #self._create_erp_source_section(layout)
 
         # Transformation group
         self._create_transformation_section(layout)
@@ -136,60 +124,6 @@ class FileUploadWidget(QWidget):
         
         parent_layout.addWidget(upload_group)
 
-    def _create_erp_source_section(self, parent_layout):
-        """Create the ERP source section of the widget."""
-        erp_group = QGroupBox("3. Select ERP Source")
-        erp_layout = QVBoxLayout(erp_group)
-
-        # ERP source type selection
-        source_layout = QHBoxLayout()
-        source_layout.addWidget(QLabel("Data Source:"))
-
-        self.source_button_group = QButtonGroup(self)
-        self.file_radio = QRadioButton("Upload File")
-        self.file_radio.setChecked(True)
-        self.file_radio.toggled.connect(self._on_erp_source_changed)
-        self.source_button_group.addButton(self.file_radio, 0)
-        source_layout.addWidget(self.file_radio)
-
-        self.database_radio = QRadioButton("Connect to Database")
-        self.database_radio.toggled.connect(self._on_erp_source_changed)
-        self.source_button_group.addButton(self.database_radio, 1)
-        source_layout.addWidget(self.database_radio)
-
-        source_layout.addStretch()
-        erp_layout.addLayout(source_layout)
-
-        # ERP file upload section
-        self.erp_file_section = QFrame()
-        erp_file_layout = QHBoxLayout(self.erp_file_section)
-
-        self.erp_file_label = QLabel("No ERP file selected")
-        self.erp_browse_btn = QPushButton("Browse ERP File...")
-        self.erp_browse_btn.clicked.connect(self._browse_erp_file)
-        
-        erp_file_layout.addWidget(self.erp_file_label)
-        erp_file_layout.addWidget(self.erp_browse_btn)
-        erp_layout.addWidget(self.erp_file_section)
-
-        # ERP database section
-        self.db_section = QFrame()
-        self.db_section.setVisible(False)
-        db_layout = QHBoxLayout(self.db_section)
-        
-        self.db_status_label = QLabel("Database not configured")
-        self.db_config_btn = QPushButton("Configure Database...")
-        self.db_test_btn = QPushButton("Test Connection")
-        
-        self.db_config_btn.clicked.connect(self._configure_database)
-        self.db_test_btn.clicked.connect(self._test_database_connection)
-        
-        db_layout.addWidget(self.db_status_label)
-        db_layout.addWidget(self.db_config_btn)
-        db_layout.addWidget(self.db_test_btn)
-        erp_layout.addWidget(self.db_section)
-        
-        parent_layout.addWidget(erp_group)
 
     def _create_transformation_section(self, parent_layout):
         """Create the transformation section of the widget."""
@@ -204,27 +138,15 @@ class FileUploadWidget(QWidget):
         self.transform_btn.setEnabled(False)
         button_layout.addWidget(self.transform_btn)
         
-        # NEW: ERP loading button
-        #self.load_erp_btn = QPushButton("Load ERP Data")
-        #self.load_erp_btn.clicked.connect(self._load_erp_data)
-        #self.load_erp_btn.setEnabled(False)
-        #button_layout.addWidget(self.load_erp_btn)
-               
-        # NEW: Combined processing button
-        #self.process_both_btn = QPushButton("Process Both Sources")
-        #self.process_both_btn.clicked.connect(self._process_both_sources)
-        #self.process_both_btn.setEnabled(False)
-        #button_layout.addWidget(self.process_both_btn)
-        
         button_layout.addStretch()
         transform_layout.addLayout(button_layout)
 
-        # Your existing progress bar (preserved)
+        # Existing progress bar (preserved)
         self.progress_bar = QProgressBar()
         self.progress_bar.setVisible(False)
         transform_layout.addWidget(self.progress_bar)
         
-        # Your existing status label (preserved)
+        # Existing status label (preserved)
         self.status_label = QLabel("")
         transform_layout.addWidget(self.status_label)
         
@@ -241,10 +163,6 @@ class FileUploadWidget(QWidget):
         self.bank_summary_label = QLabel("Bank: No data")
         self.bank_summary_label.setStyleSheet("padding: 8px; background-color: #f0f0f0; border: 1px solid #ccc;")
         summary_layout.addWidget(self.bank_summary_label)
-        
-        #self.erp_summary_label = QLabel("ERP: No data")
-        #self.erp_summary_label.setStyleSheet("padding: 8px; background-color: #f0f0f0; border: 1px solid #ccc;")
-        #summary_layout.addWidget(self.erp_summary_label)
         
         results_layout.addLayout(summary_layout)
         
@@ -275,16 +193,13 @@ class FileUploadWidget(QWidget):
         
         # NEW: Clear buttons
         self.clear_bank_btn = QPushButton("Clear Bank")
-        #self.clear_erp_btn = QPushButton("Clear ERP")
         self.clear_bank_btn.clicked.connect(self._clear_bank_data)
-        #self.clear_erp_btn.clicked.connect(self._clear_erp_data)
         
         button_layout.addWidget(self.use_for_reconciliation_btn)
         button_layout.addWidget(self.export_btn)
         button_layout.addStretch()
         button_layout.addWidget(self.clear_bank_btn)
-        #button_layout.addWidget(self.clear_erp_btn)
-        
+                
         parent_layout.addLayout(button_layout)
 
     # ========================================================================
@@ -308,13 +223,7 @@ class FileUploadWidget(QWidget):
         if hasattr(self.viewmodel, 'transformation_failed'):
             self.viewmodel.transformation_failed.connect(self._on_transformation_failed)
         
-        if hasattr(self.viewmodel, 'erp_data_loaded'):
-            self.viewmodel.erp_data_loaded.connect(self._on_erp_data_loaded)
         
-        if hasattr(self.viewmodel, 'both_sources_ready'):
-            self.viewmodel.both_sources_ready.connect(self._on_both_sources_ready)
-
-
         # Initial update
         self._update_templates(self.viewmodel.available_templates)
     
@@ -331,10 +240,6 @@ class FileUploadWidget(QWidget):
         """Update UI loading state."""
         self.progress_bar.setVisible(is_loading)
         self.transform_btn.setEnabled(not is_loading and self._can_transform())
-        
-        # NEW: Update other buttons
-        self.load_erp_btn.setEnabled(not is_loading and self._can_load_erp())
-        self.process_both_btn.setEnabled(not is_loading and self._can_process_both())
 
         if is_loading:
             self.progress_bar.setRange(0, 0)  # Indeterminate progress
@@ -368,9 +273,7 @@ class FileUploadWidget(QWidget):
             self.bank_summary_label.setText("Bank: No data")
             self.bank_summary_label.setStyleSheet("padding: 8px; background-color: #f0f0f0; border: 1px solid #ccc;")
         
-        # Update combined processing button
-        self._update_process_both_button()
-    
+  
     def _update_status(self, result_info):
         """Update status message."""
         if result_info:
@@ -600,152 +503,6 @@ Rows transformed: {result_info['rows_transformed']}
                 self.status_label.setText(f"✗ Export failed: {str(e)}")
                 self.status_label.setStyleSheet("QLabel { color: red; }")
 
-    # ========================================================================
-    # NEW METHODS - ERP functionality following your existing patterns
-    # ========================================================================
-    
-    @Slot(bool)
-    def _on_erp_source_changed(self, checked):
-        """Handle ERP source type change"""
-        if self.file_radio.isChecked():
-            self.erp_file_section.setVisible(True)
-            self.db_section.setVisible(False)
-            self.erp_source_type = 'file'
-        else:
-            self.erp_file_section.setVisible(False)
-            self.db_section.setVisible(True)
-            self.erp_source_type = 'database'
-        
-        self._update_erp_button_state()
-    
-    def _browse_erp_file(self):
-        """Browse for ERP file - following your existing file browser pattern"""
-        file_path, _ = QFileDialog.getOpenFileName(
-            self,
-            "Select ERP Ledger File",
-            "",
-            "Supported Files (*.csv *.xlsx *.xls);;CSV Files (*.csv);;Excel Files (*.xlsx *.xls)"
-        )
-        
-        if file_path:
-            self.erp_file_path = file_path
-            self.erp_file_label.setText(Path(file_path).name)
-            self._update_erp_button_state()
-    
-    def _configure_database(self):
-        """Configure database connection"""
-        try:
-            from views.dialogs.settings.oracle_connection_dialog import OracleConnectionDialog
-            
-            dialog = OracleConnectionDialog(parent=self)
-            if dialog.exec():
-                self.db_status_label.setText("Database configured")
-                self.db_status_label.setStyleSheet("color: green;")
-                self._update_erp_button_state()
-                
-        except ImportError:
-            QMessageBox.information(
-                self, 
-                "Feature Unavailable", 
-                "Database configuration dialog is not available yet."
-            )
-    
-    def _test_database_connection(self):
-        """Test database connection"""
-        self.db_status_label.setText("Testing connection...")
-        # Would test actual connection here
-        self.db_status_label.setText("✅ Connection successful")
-        self.db_status_label.setStyleSheet("color: green;")
-        self._update_erp_button_state()
-    
-    def _load_erp_data(self):
-        """Load ERP data using enhanced processor."""
-        try:
-            if self.erp_source_type == 'file':
-                # Check if we have a file path
-                if not hasattr(self, 'erp_file_path') or not self.erp_file_path:
-                    QMessageBox.warning(
-                        self, "No File Selected", 
-                        "Please select an ERP file first."
-                    )
-                    return
-                
-                # Use enhanced loading method
-                success = self.viewmodel.load_erp_from_file(self.erp_file_path)
-                
-            elif self.erp_source_type == 'database':
-                if hasattr(self.viewmodel, 'load_erp_from_database'):
-                    connection_params = self._get_database_connection_params()
-                    if connection_params:
-                        success = self.viewmodel.load_erp_from_database(connection_params)
-                    else:
-                        QMessageBox.warning(
-                            self, "No Database Configuration", 
-                            "Please configure database connection first."
-                        )
-                        return
-                else:
-                    QMessageBox.information(
-                        self, "Feature Unavailable", 
-                        "Database ERP loading will be available soon."
-                    )
-                    return
-            else:
-                QMessageBox.warning(
-                    self, "Invalid Source", 
-                    f"Unknown ERP source type: {self.erp_source_type}"
-                )
-                return
-            
-            if success:
-                self.status_label.setText("ERP data loaded with enhanced processing")
-                self.status_label.setStyleSheet("QLabel { color: green; font-weight: bold; }")
-                
-                # Update ERP summary with enhanced info
-                if hasattr(self.viewmodel, 'erp_data') and self.viewmodel.erp_data is not None:
-                    record_count = len(self.viewmodel.erp_data)
-                    source_info = getattr(self.viewmodel, '_erp_source_info', f'{record_count} transactions')
-                    self.erp_summary_label.setText(f"ERP: {source_info}")
-                    self.erp_summary_label.setStyleSheet(
-                        "padding: 8px; background-color: #d4edda; border: 1px solid #c3e6cb; "
-                        "color: #155724; font-weight: bold;"
-                    )
-                    
-                    # Show processing summary
-                    confidence_info = ""
-                    if hasattr(self.viewmodel, '_erp_source_info') and 'confidence' in self.viewmodel._erp_source_info:
-                        confidence_info = " with auto-mapping"
-                    
-                    self.status_label.setText(f"ERP data loaded: {record_count} transactions{confidence_info}")
-            else:
-                error_msg = getattr(self.viewmodel, 'error_message', 'Unknown error')
-                self.status_label.setText(f"ERP loading failed: {error_msg}")
-                self.status_label.setStyleSheet("QLabel { color: red; font-weight: bold; }")
-            
-        except Exception as e:
-            self.status_label.setText(f"ERP loading failed: {str(e)}")
-            self.status_label.setStyleSheet("QLabel { color: red; font-weight: bold; }")
-            logger.error(f"Enhanced ERP loading error: {e}")
-
-    
-    def _process_both_sources(self):
-        """Process both bank and ERP data"""
-        try:
-            if hasattr(self.viewmodel, 'process_both_sources'):
-                success = self.viewmodel.process_both_sources()
-                if success:
-                    self.status_label.setText("✓ Both sources processed successfully")
-                    self.status_label.setStyleSheet("QLabel { color: green; }")
-            else:
-                QMessageBox.information(
-                    self,
-                    "Feature Unavailable",
-                    "Combined processing is not yet implemented."
-                )
-        except Exception as e:
-            self.status_label.setText(f"✗ Processing failed: {str(e)}")
-            self.status_label.setStyleSheet("QLabel { color: red; }")
-    
     def _clear_bank_data(self):
         """Clear bank data"""
         if hasattr(self.viewmodel, 'clear_bank_data'):
@@ -755,46 +512,11 @@ Rows transformed: {result_info['rows_transformed']}
         self.bank_summary_label.setText("Bank: No data")
         self.bank_summary_label.setStyleSheet("padding: 8px; background-color: #f0f0f0; border: 1px solid #ccc;")
         self.results_table.setVisible(False)
-        self.results_text.clear()  # Clear the results text
+        if hasattr(self, 'results_text'):
+            self.results_text.clear() # Clear the results text
         self.status_label.setText("")  # Clear the status label
-        self._update_process_both_button()
-    
-    def _clear_erp_data(self):
-        """Clear ERP data"""
-        if hasattr(self.viewmodel, 'clear_erp_data'):
-            self.viewmodel.clear_erp_data()
         
-        self.erp_file_label.setText("No ERP file selected")
-        self.erp_summary_label.setText("ERP: No data")
-        self.erp_summary_label.setStyleSheet("padding: 8px; background-color: #f0f0f0; border: 1px solid #ccc;")
-        self._update_process_both_button()
-    
-    # ========================================================================
-    # HELPER METHODS - Following your existing patterns
-    # ========================================================================
-    
-    def _can_load_erp(self) -> bool:
-        """Check if ERP data can be loaded"""
-        if self.erp_source_type == 'file':
-            return self.erp_file_path is not None
-        else:
-            return "✅" in self.db_status_label.text()
-    
-    def _can_process_both(self) -> bool:
-        """Check if both sources can be processed"""
-        has_bank = self.viewmodel.transformed_statement is not None
-        has_erp = hasattr(self.viewmodel, 'erp_data') and self.viewmodel.erp_data is not None
-        return has_bank and has_erp and not self.viewmodel.is_loading
-    
-    def _update_erp_button_state(self):
-        """Update ERP-related button states"""
-        self.load_erp_btn.setEnabled(self._can_load_erp() and not self.viewmodel.is_loading)
-        self._update_process_both_button()
-    
-    def _update_process_both_button(self):
-        """Update combined processing button state"""
-        self.process_both_btn.setEnabled(self._can_process_both())
-    
+
     # ========================================================================
     # NEW SIGNAL HANDLERS - Enhanced functionality
     # ========================================================================
@@ -822,36 +544,3 @@ Rows transformed: {result_info['rows_transformed']}
         # Emit error signal
         self.processing_error.emit('bank', error_message)
     
-    @Slot(object, str, str)
-    def _on_erp_data_loaded(self, data, source_type, source_info):
-        """Handle ERP data loading completion"""
-        # Update ERP summary
-        self.erp_summary_label.setText(f"ERP: {source_info}")
-        self.erp_summary_label.setStyleSheet("padding: 8px; background-color: #e8f5e8; border: 1px solid #4CAF50;")
-        
-        # Update status
-        self.status_label.setText(f"✓ ERP data loaded: {source_info}")
-        self.status_label.setStyleSheet("QLabel { color: green; }")
-        
-        # Update button states
-        self._update_process_both_button()
-        
-        # Emit signal
-        self.erp_data_ready.emit(data, source_type, source_info)
-        
-        logger.info(f"ERP data loaded from {source_type}: {source_info}")
-    
-    @Slot(object, object, dict)
-    def _on_both_sources_ready(self, bank_transactions, erp_transactions, metadata):
-        """Handle both sources ready for processing"""
-        # Update status
-        self.status_label.setText("✓ Both sources ready for reconciliation")
-        self.status_label.setStyleSheet("QLabel { color: green; }")
-        
-        # Enable reconciliation button
-        self.use_for_reconciliation_btn.setEnabled(True)
-        
-        # Emit combined signal
-        self.both_sources_ready.emit(bank_transactions, erp_transactions, metadata)
-        
-        logger.info("Both data sources ready for processing")
