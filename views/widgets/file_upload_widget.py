@@ -174,6 +174,7 @@ class FileUploadWidget(QWidget):
         
         # Existing results table (preserved)
         self.results_table = QTableWidget()
+        self.results_table.setObjectName("resultsTable")
         self.results_table.setVisible(False)
         results_layout.addWidget(self.results_table)
         

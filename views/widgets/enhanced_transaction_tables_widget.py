@@ -28,6 +28,7 @@ class MatchResultsTable(QTableWidget):
     
     def __init__(self, table_type: str, parent=None):
         super().__init__(parent)
+        self.setObjectName("resultsTable")
         self.table_type = table_type
         self._setup_table()
         self._setup_context_menu()

@@ -10,6 +10,7 @@ Bank Reconciliation AI - Main Application Entry Point
 """
 
 import logging
+import re
 from pathlib import Path
 import sys
 
@@ -82,15 +83,58 @@ def main():
 
 
 def load_application_stylesheet(app):
-    """Load stylesheet once for entire application"""
+    """Load stylesheet once for entire application.
+
+    Supports basic ``@import`` statements within the QSS file by inlining
+    the referenced component stylesheets. In addition to processing any
+    imports found in ``main.qss``, the button, combobox and table component
+    styles are always concatenated with the base stylesheet.
+    """
     try:
         stylesheet_path = Path("resources/styles/main.qss")
-        if stylesheet_path.exists():
-            with open(stylesheet_path, "r", encoding="utf-8") as f:
-                app.setStyleSheet(f.read())
-            logger.info("Application stylesheet loaded successfully")
-        else:
+        if not stylesheet_path.exists():
             logger.warning(f"Stylesheet not found: {stylesheet_path}")
+            return
+
+        # Read base stylesheet and replace any @import directives with the
+        # contents of the referenced file.
+        base_content = stylesheet_path.read_text(encoding="utf-8").splitlines()
+        import_pattern = re.compile(
+            r"@import\s+url\([\"']?([^\"')]+)[\"']?\);?"
+        )
+        final_styles = []
+        imported_files = set()
+
+        for line in base_content:
+            match = import_pattern.search(line.strip())
+            if match:
+                import_file = stylesheet_path.parent / match.group(1)
+                if import_file.exists():
+                    final_styles.append(import_file.read_text(encoding="utf-8"))
+                    imported_files.add(import_file.resolve())
+                else:
+                    logger.warning(f"Imported stylesheet not found: {import_file}")
+            else:
+                final_styles.append(line)
+
+        # Ensure specific component styles are included even if they were not
+        # explicitly imported.
+        components = [
+            "components/buttons.qss",
+            "components/comboboxes.qss",
+            "components/tables.qss",
+        ]
+        for component in components:
+            comp_path = stylesheet_path.parent / component
+            resolved = comp_path.resolve()
+            if comp_path.exists() and resolved not in imported_files:
+                final_styles.append(comp_path.read_text(encoding="utf-8"))
+                imported_files.add(resolved)
+            elif not comp_path.exists():
+                logger.warning(f"Stylesheet not found: {comp_path}")
+
+        app.setStyleSheet("\n".join(final_styles))
+        logger.info("Application stylesheet loaded successfully")
     except Exception as e:
         logger.error(f"Failed to load stylesheet: {e}")
 

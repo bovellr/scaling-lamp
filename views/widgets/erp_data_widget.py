@@ -106,6 +106,7 @@ class ERPDataWidget(QWidget):
         
         # Results table
         self.results_table = QTableWidget()
+        self.results_table.setObjectName("resultsTable")
         self.results_table.setColumnCount(4)
         self.results_table.setHorizontalHeaderLabels(["Date", "Description", "Amount", "Reference"])
         self.results_table.setMaximumHeight(200)

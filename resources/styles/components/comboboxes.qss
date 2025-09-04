@@ -52,32 +52,32 @@ QComboBox QAbstractItemView {
     show-decoration-selected: 1;
 }
 
-/* Individual dropdown items - FIXED with !important */
+/* Individual dropdown items */
 QComboBox QAbstractItemView::item {
     padding: 8px 12px;
     border-bottom: 1px solid #dee2e6;
-    color: #495057 !important;  /* Dark text for visibility - FORCED */
-    background-color: white !important;  /* White background - FORCED */
+    color: #495057;  /* Dark text for visibility - FORCED */
+    background-color: white;  /* White background - FORCED */
     min-height: 20px;
     border: none;
 }
 
-/* Hover state - FIXED with !important */
+/* Hover state */
 QComboBox QAbstractItemView::item:hover {
-    background-color: #e9ecef !important;  /* Light gray background - FORCED */
-    color: #212529 !important;  /* Dark text - FORCED */
+    background-color: #e9ecef;  /* Light gray background - FORCED */
+    color: #212529;  /* Dark text - FORCED */
 }
 
-/* Selected state - FIXED with !important */
+/* Selected statet */
 QComboBox QAbstractItemView::item:selected {
-    background-color: #007bff !important;  /* Blue background - FORCED */
-    color: white !important;  /* White text - FORCED */
+    background-color: #007bff ;  /* Blue background - FORCED */
+    color: white;  /* White text - FORCED */
 }
 
 /* Focus state for dropdown items */
 QComboBox QAbstractItemView::item:focus {
-    background-color: #007bff !important;
-    color: white !important;
+    background-color: #007bff;
+    color: white;
     outline: none;
 }
 
@@ -108,28 +108,28 @@ QComboBox#bankAccountSelector QAbstractItemView {
 }
 
 QComboBox#bankAccountSelector QAbstractItemView::item {
-    color: #2c3e50 !important;  /* Darker text for bank accounts - FORCED */
-    background-color: white !important;  /* White background - FORCED */
+    color: #2c3e50 ;  /* Darker text for bank accounts - FORCED */
+    background-color: white;  /* White background - FORCED */
     font-weight: 500;
     padding: 8px 12px;
     border: none;
 }
 
 QComboBox#bankAccountSelector QAbstractItemView::item:hover {
-    background-color: #fdf2e9 !important;  /* Light blue hover background - FORCED */
-    color: #5d4037 !important;  /* Keep dark text on hover - FORCED */
-    border: 1px solid #b3d9f2 !important; /* Light blue-gray border */
+    background-color: #fdf2e9;  /* Light blue hover background - FORCED */
+    color: #5d4037;  /* Keep dark text on hover - FORCED */
+    border: 1px solid #b3d9f2; /* Light blue-gray border */
 }
 
 /* Maximum specificity to override conflicts */
 QMainWindow QComboBox#bankAccountSelector QAbstractItemView::item:hover {
-    background-color: #fdf2e9 !important;
-    color: #5d4037 !important;
-    border: 1px solid #9e9e9e !important;
+    background-color: #fdf2e9;
+    color: #5d4037;
+    border: 1px solid #9e9e9e;
 }
 
 QComboBox#bankAccountSelector QAbstractItemView::item:selected {
-    background-color: #3498db !important;  /* Blue when selected - FORCED */
-    color: white !important;  /* White text when selected - FORCED */
+    background-color: #3498db;  /* Blue when selected - FORCED */
+    color: white;  /* White text when selected - FORCED */
 }
 
