@@ -41,13 +41,13 @@ class ERPFileProcessor(BaseFileProcessor):
             ],
             'reference': [
                 'reference', 'ref', 'transaction_ref', 'gl_transaction_type', 
-                'type', 'cheque_ref', 'gl_cheque_ref','payment_type'
+                'type', 'cheque ref', 'gl_cheque_ref','payment_type'
             ]
         }
 
         # Secondary descriptive patterns for multi-column descriptions
         self.secondary_desc_patterns = [
-            'cheque_ref', 'cheque_number', 'payment_ref', 'transaction_ref',
+            'cheque ref', 'cheque_ref','cheque_number', 'payment_ref', 'transaction_ref',
             'bank_ref', 'customer_ref', 'doc_number', 'voucher_number',
             'additional_details', 'memo2', 'notes', 'comments'
         ]
@@ -160,7 +160,7 @@ class ERPFileProcessor(BaseFileProcessor):
             )
             
             # Find the header row (row with most text values)
-            header_row_idx = self._find_header_row(sample_df)
+            header_row_idx = self.find_header_row(sample_df)
             
             if header_row_idx is None:
                 return {

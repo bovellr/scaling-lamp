@@ -249,6 +249,9 @@ class ERPDataWidget(QWidget):
         
         self.sheet_combo = QComboBox()
         self.sheet_combo.setVisible(False)
+        self.sheet_combo.setFixedHeight(20)
+        self.sheet_combo.setMaxVisibleItems(10)
+        
         options_layout.addRow("Excel sheet:", self.sheet_combo)
         
         upload_layout.addLayout(options_layout)
@@ -261,6 +264,16 @@ class ERPDataWidget(QWidget):
         self.description_column_combo = QComboBox()
         self.amount_column_combo = QComboBox()
         self.reference_column_combo = QComboBox()
+
+        for combo in (
+            self.date_column_combo,
+            self.description_column_combo,
+            self.amount_column_combo,
+            self.reference_column_combo,
+        ):
+            combo.setFixedHeight(20)
+            combo.setMaxVisibleItems(10)
+            
         
         mapping_layout.addRow("Date Column:", self.date_column_combo)
         mapping_layout.addRow("Description Column:", self.description_column_combo)
