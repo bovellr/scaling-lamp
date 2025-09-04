@@ -353,15 +353,9 @@ Rows transformed: {result_info['rows_transformed']}
     
     def _transform_statement(self):
         """Trigger statement transformation."""
-        success = self.viewmodel.transform_statement()
+        self.viewmodel.transform_statement()
         
-        if success and self.viewmodel.transformed_statement:
-            self.file_transformed.emit(self.viewmodel.transformed_statement)
-
-            # NEW: Enhanced signal
-            result_info = self.viewmodel.transformation_result or {}
-            self.bank_data_ready.emit(self.viewmodel.transformed_statement, result_info)
-    
+  
     def _refresh_templates(self):
         """Refresh available templates."""
         self.viewmodel.refresh_templates()
@@ -508,14 +502,31 @@ Rows transformed: {result_info['rows_transformed']}
         if hasattr(self.viewmodel, 'clear_bank_data'):
             self.viewmodel.clear_bank_data()
         
+        # Reset UI to initial state
         self.file_path_label.setText("No file selected")
+        self.template_combo.setCurrentIndex(0)  # Reset to "Select a bank template..."
         self.bank_summary_label.setText("Bank: No data")
         self.bank_summary_label.setStyleSheet("padding: 8px; background-color: #f0f0f0; border: 1px solid #ccc;")
+        
+        # Clear results and status
         self.results_table.setVisible(False)
+        self.results_table.setRowCount(0)
         if hasattr(self, 'results_text'):
             self.results_text.clear() # Clear the results text
         self.status_label.setText("")  # Clear the status label
+        self.status_label.setStyleSheet("")  # Reset styling
+
+        # Reset button states
+        self.transform_btn.setEnabled(False)
+        self.use_for_reconciliation_btn.setEnabled(False)
+        self.export_btn.setEnabled(False)
+        self.edit_template_btn.setEnabled(False)
+        self.delete_template_btn.setEnabled(False)
         
+        # Hide progress bar
+        self.progress_bar.setVisible(False)
+        
+        logger.info("Bank data and UI state cleared")
 
     # ========================================================================
     # NEW SIGNAL HANDLERS - Enhanced functionality

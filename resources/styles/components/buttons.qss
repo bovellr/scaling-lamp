@@ -1,0 +1,37 @@
+/* =================================================================== */
+/* BUTTONS */
+/* =================================================================== */
+QPushButton {
+    background-color: #007acc;
+    color: white;
+    border: none;
+    padding: 8px 16px;
+    border-radius: 4px;
+    font-weight: 500;
+    min-width: 80px;
+}
+
+QPushButton:hover {
+    background-color: #005a9e;
+}
+
+QPushButton:pressed {
+    background-color: #004578;
+}
+
+QPushButton:disabled {
+    background-color: #cccccc;
+    color: #666666;
+}
+
+/* specific styling */ 
+QPushButton#primaryButton { 
+    background-color: #6c757d;
+    color: white;
+    border: none;
+    border-radius: 3px;  
+}
+
+QPushButton#primaryButton:hover {
+    background-color: #5a6268;
+}

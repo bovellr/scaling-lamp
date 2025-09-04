@@ -142,7 +142,7 @@ class MainWindow(QMainWindow):
         
         # Upload widget signals
         if hasattr(self, 'upload_widget'):
-            self.upload_widget.file_transformed.connect(self.on_bank_statement_ready)
+            self.upload_widget.bank_data_ready.connect(self.on_bank_statement_ready)
         
         # ERP widget signals  
         if hasattr(self, 'erp_widget'):
@@ -182,6 +182,7 @@ class MainWindow(QMainWindow):
         
         # Manage accounts button
         self.btn_manage_accounts = QPushButton()
+        self.btn_manage_accounts.setObjectName("primaryButton")
         self.btn_manage_accounts.setToolTip("Manage Bank Accounts")
         self.btn_manage_accounts.setIcon(
             self.style().standardIcon(QStyle.SP_FileDialogDetailedView)
@@ -207,6 +208,7 @@ class MainWindow(QMainWindow):
         
         # Account selector combobox
         self.combo_bank_account = QComboBox()
+        self.combo_bank_account.setObjectName("bankAccountSelector")
         self.combo_bank_account.setMinimumWidth(250)
         self.combo_bank_account.addItem("Select Bank Account...", None)
         
@@ -217,29 +219,6 @@ class MainWindow(QMainWindow):
         
         # Connect account selection handler
         self.combo_bank_account.currentTextChanged.connect(self.on_bank_account_changed)
-        
-        # Style the combobox
-        self.combo_bank_account.setStyleSheet("""
-            QComboBox {
-                padding: 8px 12px;
-                border: 2px solid #3498db;
-                border-radius: 6px;
-                background-color: white;
-                font-size: 12px;
-                font-weight: 500;
-            }
-            QComboBox:hover {
-                border-color: #2980b9;
-            }
-            QComboBox::drop-down {
-                border: none;
-                width: 30px;
-            }
-            QComboBox::down-arrow {
-                width: 12px;
-                height: 12px;
-            }
-        """)
         
         account_layout.addWidget(self.combo_bank_account)
         header_layout.addWidget(account_section)
@@ -260,8 +239,7 @@ class MainWindow(QMainWindow):
         """Create the file upload tab"""
         # Create upload widget
         self.upload_widget = FileUploadWidget(viewmodel=self.upload_viewmodel)
-        self.upload_widget.file_transformed.connect(self.on_bank_statement_ready)
-        
+                
         # Create scroll area for the upload widget
         scroll_area = QScrollArea()
         scroll_area.setWidget(self.upload_widget)
@@ -459,17 +437,14 @@ class MainWindow(QMainWindow):
 
     def _apply_styles(self):
         """Apply styles from QSS file - UPDATED to fix combobox issues."""
-        qss_path = os.path.join("resources", "styles", "main.qss")
-        if os.path.exists(qss_path):
-            with open(qss_path, "r") as f:
-                # Apply to entire window, not just centralWidget
-                self.setStyleSheet(f.read())  # CHANGED: was self.centralWidget().setStyleSheet()
-        else:
-            logger.warning(f"Stylesheet not found: {qss_path}")
-        
+                
         # Set object name for bank account selector (for targeted styling)
         if hasattr(self, 'combo_bank_account'):
             self.combo_bank_account.setObjectName("bankAccountSelector")
+        
+        # Set other object names for specific styling
+        if hasattr(self, 'btn_manage_accounts'):
+            self.btn_manage_accounts.setObjectName("primaryButton")
         
         # Keep existing tab-specific styling (UNCHANGED)
         self.tab_widget.setStyleSheet("""

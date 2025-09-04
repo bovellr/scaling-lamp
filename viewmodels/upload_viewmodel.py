@@ -526,6 +526,12 @@ class UploadViewModel(BaseViewModel):
         self.notify_property_changed('uploaded_file_path', None)
         self.notify_property_changed('transformed_statement', None)
         self.notify_property_changed('selected_template', None)
+        self.notify_property_changed('transformation_result', None)
+        self.notify_property_changed('error_message', None)
+        self.notify_property_changed('is_loading', False)
+
+        if hasattr(self, '_selected_template'):
+            self.notify_property_changed('selected_template', self._selected_template)
         
         self._update_processing_enabled()
         self.data_cleared.emit('bank')

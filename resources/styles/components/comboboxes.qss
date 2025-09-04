@@ -1,0 +1,135 @@
+/* =================================================================== */
+/* COMBOBOXES - COMPLETE STYLING */
+/* =================================================================== */
+QComboBox {
+    padding: 8px 12px;
+    border: 2px solid #007bff;
+    border-radius: 6px;
+    background-color: white;
+    font-size: 12px;
+    color: #495057;
+    min-height: 20px;
+}
+
+QComboBox:hover {
+    border-color: #0056b3;
+    background-color: #f8f9fa;
+}
+
+QComboBox:focus {
+    border-color: #80bdff;
+    outline: none;
+}
+
+QComboBox:disabled {
+    background-color: #e9ecef;
+    color: #6c757d;
+    border-color: #ced4da;
+}
+
+/* Dropdown arrow styling */
+QComboBox::drop-down {
+    border: none;
+    width: 30px;
+    background: transparent;
+}
+
+QComboBox::down-arrow {
+    image: url(data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMTYiIGhlaWdodD0iMTYiIGZpbGw9IiM2Yzc1N2QiIHZpZXdCb3g9IjAgMCAxNiAxNiI+PHBhdGggZD0iTTcuMjQ3IDQuODZsLTQuNzk2IDUuNDgxYy0uNTY2LjY0Ny0uMTA2IDEuNjU5LjczNSAxLjY1OWg5LjYxNGMuODQxIDAgMS4zMDEtMS4wMTIuNzM1LTEuNjU5TDguNzUzIDQuODZhMSAxIDAgMDAtMS41MDYgMHoiLz48L3N2Zz4=);
+    width: 16px;
+    height: 16px;
+}
+
+/* CRITICAL: Dropdown list styling - this fixes the visibility issue */
+QComboBox QAbstractItemView {
+    border: 2px solid #dee2e6;
+    border-radius: 6px;
+    background-color: white;
+    selection-background-color: #007bff;
+    selection-color: white;
+    outline: none;
+    font-size: 12px;
+    show-decoration-selected: 1;
+}
+
+/* Individual dropdown items - FIXED with !important */
+QComboBox QAbstractItemView::item {
+    padding: 8px 12px;
+    border-bottom: 1px solid #dee2e6;
+    color: #495057 !important;  /* Dark text for visibility - FORCED */
+    background-color: white !important;  /* White background - FORCED */
+    min-height: 20px;
+    border: none;
+}
+
+/* Hover state - FIXED with !important */
+QComboBox QAbstractItemView::item:hover {
+    background-color: #e9ecef !important;  /* Light gray background - FORCED */
+    color: #212529 !important;  /* Dark text - FORCED */
+}
+
+/* Selected state - FIXED with !important */
+QComboBox QAbstractItemView::item:selected {
+    background-color: #007bff !important;  /* Blue background - FORCED */
+    color: white !important;  /* White text - FORCED */
+}
+
+/* Focus state for dropdown items */
+QComboBox QAbstractItemView::item:focus {
+    background-color: #007bff !important;
+    color: white !important;
+    outline: none;
+}
+
+/* Bank account selector specific styling - ENHANCED */
+QComboBox#bankAccountSelector {
+    padding: 8px 12px;
+    border: 2px solid #3498db;
+    border-radius: 6px;
+    background-color: white;
+    font-size: 12px;
+    font-weight: 500;
+    min-width: 250px;
+    color: #2c3e50;
+}
+
+QComboBox#bankAccountSelector:hover {
+    border-color: #2980b9;
+    background-color: #f8f9fa;
+}
+
+/* Bank account dropdown items - SPECIFIC STYLING */
+QComboBox#bankAccountSelector QAbstractItemView {
+    border: 2px solid #3498db;
+    border-radius: 6px;
+    background-color: white;
+    selection-background-color: #3498db;
+    selection-color: white;
+}
+
+QComboBox#bankAccountSelector QAbstractItemView::item {
+    color: #2c3e50 !important;  /* Darker text for bank accounts - FORCED */
+    background-color: white !important;  /* White background - FORCED */
+    font-weight: 500;
+    padding: 8px 12px;
+    border: none;
+}
+
+QComboBox#bankAccountSelector QAbstractItemView::item:hover {
+    background-color: #fdf2e9 !important;  /* Light blue hover background - FORCED */
+    color: #5d4037 !important;  /* Keep dark text on hover - FORCED */
+    border: 1px solid #b3d9f2 !important; /* Light blue-gray border */
+}
+
+/* Maximum specificity to override conflicts */
+QMainWindow QComboBox#bankAccountSelector QAbstractItemView::item:hover {
+    background-color: #fdf2e9 !important;
+    color: #5d4037 !important;
+    border: 1px solid #9e9e9e !important;
+}
+
+QComboBox#bankAccountSelector QAbstractItemView::item:selected {
+    background-color: #3498db !important;  /* Blue when selected - FORCED */
+    color: white !important;  /* White text when selected - FORCED */
+}
+
