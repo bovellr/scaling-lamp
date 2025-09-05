@@ -94,57 +94,95 @@ class MatchResultsTable(QTableWidget):
         
     def populate_matched_data(self, matches: List[TransactionMatch]):
         """Populate table with matched transaction data"""
+        if not matches:
+            self.setRowCount(0)
+            return
+            
         self.setRowCount(len(matches))
-        
+            
         for row, match in enumerate(matches):
-            self._populate_match_row(row, match)
+            self._populate_matched_row(row, match)
+            
+        self.resizeColumnsToContents()
+
             
     def populate_unmatched_data(self, transactions: List[TransactionData], data_type: str):
         """Populate table with unmatched transaction data"""
-        self.setRowCount(len(transactions))
+        if not transactions:
+            self.setRowCount(0)
+            return
         
+        self.setRowCount(len(transactions))
+    
         for row, transaction in enumerate(transactions):
             self._populate_unmatched_row(row, transaction, data_type)
     
-    def _populate_match_row(self, row: int, match: TransactionMatch):
+        self.resizeColumnsToContents()
+    
+    def _populate_matched_row(self, row: int, match: TransactionMatch):
         """Populate a row with match data"""
         # Bank transaction data
-        self.setItem(row, 0, QTableWidgetItem(str(match.bank_transaction.date)))
-        self.setItem(row, 1, QTableWidgetItem(match.bank_transaction.description))
-        self.setItem(row, 2, QTableWidgetItem(f"{match.bank_transaction.amount:.2f}"))
+        bank_date = str(match.bank_transaction.date) if match.bank_transaction else ""
+        bank_desc = match.bank_transaction.description if match.bank_transaction else ""
+        bank_amount = match.bank_transaction.amount if match.bank_transaction else 0.0
         
-        # ERP transaction data
-        self.setItem(row, 3, QTableWidgetItem(str(match.erp_transaction.date)))
-        self.setItem(row, 4, QTableWidgetItem(match.erp_transaction.description))
-        self.setItem(row, 5, QTableWidgetItem(f"{match.erp_transaction.amount:.2f}"))
+        # ERP transaction data  
+        erp_date = str(match.erp_transaction.date) if match.erp_transaction else ""
+        erp_desc = match.erp_transaction.description if match.erp_transaction else ""
+        erp_amount = match.erp_transaction.amount if match.erp_transaction else 0.0
         
-        # Confidence score with color coding
-        confidence_item = QTableWidgetItem(f"{match.confidence_score:.3f}")
-        if match.confidence_score >= 0.8:
-            confidence_item.setBackground(QBrush(QColor(200, 255, 200)))  # Light green
-        elif match.confidence_score >= 0.5:
-            confidence_item.setBackground(QBrush(QColor(255, 255, 200)))  # Light yellow
-        else:
-            confidence_item.setBackground(QBrush(QColor(255, 200, 200)))  # Light red
-        self.setItem(row, 6, confidence_item)
-        
-        # Status
-        status_item = QTableWidgetItem(match.status.value if match.status else "PENDING")
-        self.setItem(row, 7, status_item)
+        if self.table_type in ["matched", "review"]:
+            self.setItem(row, 0, QTableWidgetItem(bank_date))
+            self.setItem(row, 1, QTableWidgetItem(bank_desc[:50] + "..." if len(bank_desc) > 50 else bank_desc))
+            self.setItem(row, 2, QTableWidgetItem(f"£{bank_amount:.2f}"))
+            self.setItem(row, 3, QTableWidgetItem(erp_date))
+            self.setItem(row, 4, QTableWidgetItem(erp_desc[:50] + "..." if len(erp_desc) > 50 else erp_desc))
+            self.setItem(row, 5, QTableWidgetItem(f"£{erp_amount:.2f}"))
+            
+            # Confidence score with color coding
+            confidence_item = QTableWidgetItem(f"{match.confidence_score:.3f}")
+            if match.confidence_score >= 0.8:
+                confidence_item.setBackground(QBrush(QColor(200, 255, 200)))  # Light green
+            elif match.confidence_score >= 0.5:
+                confidence_item.setBackground(QBrush(QColor(255, 255, 200)))  # Light yellow
+            else:
+                confidence_item.setBackground(QBrush(QColor(255, 200, 200)))  # Light red
+            self.setItem(row, 6, confidence_item)
+            
+            # Status or Issues column
+            if self.table_type == "matched":
+                status_text = getattr(match, 'status', 'MATCHED')
+                self.setItem(row, 7, QTableWidgetItem(str(status_text)))
+            else:  # review table
+                issues = []
+                if match.confidence_score < 0.8:
+                    issues.append("Low confidence")
+                if abs(bank_amount - erp_amount) > 0.01:
+                    issues.append("Amount difference")
+                issues_text = ", ".join(issues) if issues else "Review required"
+                self.setItem(row, 7, QTableWidgetItem(issues_text))
+            
+            # Actions placeholder
+            self.setItem(row, 8, QTableWidgetItem(""))
         
         # Store match object for later retrieval
-        self.setItem(row, 8, QTableWidgetItem(""))  # Placeholder for actions
         self.item(row, 0).setData(Qt.UserRole, match)
+
     
     def _populate_unmatched_row(self, row: int, transaction: TransactionData, data_type: str):
         """Populate a row with unmatched transaction data"""
-        self.setItem(row, 0, QTableWidgetItem(str(transaction.date)))
-        self.setItem(row, 1, QTableWidgetItem(transaction.description))
-        self.setItem(row, 2, QTableWidgetItem(f"{transaction.amount:.2f}"))
-        self.setItem(row, 3, QTableWidgetItem(getattr(transaction, 'reference', '')))
+        date_str = str(transaction.date) if hasattr(transaction, 'date') else ""
+        description = transaction.description if hasattr(transaction, 'description') else ""
+        amount = transaction.amount if hasattr(transaction, 'amount') else 0.0
+        reference = getattr(transaction, 'reference', '') or ""
+        
+        self.setItem(row, 0, QTableWidgetItem(date_str))
+        self.setItem(row, 1, QTableWidgetItem(description[:80] + "..." if len(description) > 80 else description))
+        self.setItem(row, 2, QTableWidgetItem(f"£{amount:.2f}"))
+        self.setItem(row, 3, QTableWidgetItem(reference))
         self.setItem(row, 4, QTableWidgetItem("UNMATCHED"))
         
-        # Store transaction object
+        # Store transaction object for later retrieval
         self.item(row, 0).setData(Qt.UserRole, transaction)
         
         # Color code unmatched items
@@ -152,7 +190,7 @@ class MatchResultsTable(QTableWidget):
             color = QColor(255, 240, 240)  # Light red for unmatched bank
         else:
             color = QColor(240, 240, 255)  # Light blue for unmatched ERP
-            
+        
         for col in range(self.columnCount()):
             if self.item(row, col):
                 self.item(row, col).setBackground(QBrush(color))
@@ -197,6 +235,8 @@ class MatchResultsTable(QTableWidget):
             
         menu.exec(self.mapToGlobal(position))
 
+
+
 class EnhancedTransactionTablesWidget(QGroupBox):
     """Enhanced transaction tables with tabbed interface and comprehensive match display"""
     
@@ -215,10 +255,6 @@ class EnhancedTransactionTablesWidget(QGroupBox):
     def _setup_ui(self):
         """Setup the tabbed interface"""
         layout = QVBoxLayout(self)
-        
-        # Summary header
-        self.summary_frame = self._create_summary_frame()
-        layout.addWidget(self.summary_frame)
         
         # Tabbed tables
         self.tables_tabs = QTabWidget()

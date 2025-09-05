@@ -13,6 +13,8 @@ from PySide6.QtWidgets import (QMainWindow, QWidget, QVBoxLayout, QHBoxLayout,QM
                                QGroupBox, QMessageBox,QFileDialog, QScrollArea, QDialog, QStyle)
 from PySide6.QtCore import Qt, Slot
 from PySide6.QtGui import QAction
+from PySide6.QtCore import QTimer
+import time
 from pathlib import Path
 import logging
 import os
@@ -21,14 +23,13 @@ import pandas as pd
 # Import from dependency injection container
 from services.app_container import get_config_service, get_account_service, get_upload_viewmodel
 
-# Import other dependencies
 from services.data_service import DataService
 from .dialogs.dialog_manager import DialogManager
 
 
 # Import widgets
 from .widgets.file_upload_widget import FileUploadWidget
-from .widgets.action_buttons_widget import ActionButtonsWidget
+from .widgets.streamlined_action_buttons_widget import StreamlinedActionButtonsWidget
 from .widgets.filters_widget import FiltersWidget
 from .widgets.ai_results_widget import AiResultsWidget
 from .widgets.enhanced_transaction_tables_widget import EnhancedTransactionTablesWidget
@@ -40,7 +41,7 @@ from .widgets.erp_data_widget import ERPDataWidget
 # Import ViewModels (only for local state, services come from DI)
 from viewmodels.erp_database_viewmodel import ERPDatabaseViewModel
 from viewmodels.matching_viewmodel import MatchingViewModel
-from models.data_models import TransactionData
+from models.data_models import TransactionData, TransactionMatch
 from services.account_service import AccountService
 
 logger = logging.getLogger(__name__)
@@ -140,13 +141,73 @@ class MainWindow(QMainWindow):
         if hasattr(self, 'combo_bank_account'):
             self.combo_bank_account.currentTextChanged.connect(self.on_bank_account_changed)
         
-        # Upload widget signals
-        if hasattr(self, 'upload_widget'):
-            self.upload_widget.bank_data_ready.connect(self.on_bank_statement_ready)
+        # NEW: Connect data service signals for button state management
+        if hasattr(self, 'data_service'):
+            self.data_service.bank_data_loaded.connect(self._on_data_loaded)
+            self.data_service.erp_data_loaded.connect(self._on_data_loaded)
+            self.data_service.reconciliation_completed.connect(self._on_reconciliation_completed)
+     
+    @Slot()
+    def _on_data_loaded(self):
+        """Handle when data is loaded to update button states"""
+        is_ready = self.data_service.is_ready_for_reconciliation
         
-        # ERP widget signals  
-        if hasattr(self, 'erp_widget'):
-            self.erp_widget.erp_data_loaded.connect(self.on_erp_data_ready)
+        if hasattr(self, 'action_buttons_widget'):
+            self.action_buttons_widget.set_data_ready(is_ready)
+        elif hasattr(self, 'btn_auto_match'):
+            self.btn_auto_match.setEnabled(is_ready)
+
+    @Slot(list)
+    def _on_reconciliation_completed(self, matches):
+        """Handle reconciliation completion"""
+        logger.info(f"Reconciliation completed with {len(matches)} matches")
+        
+    @Slot(list)
+    def _open_review_dialog(self, matches):
+        """Open review dialog for low confidence matches"""
+        if not matches:
+            QMessageBox.information(self, "Review", "No matches require review.")
+            return
+        
+        # Show review summary for now
+        review_text = f"Review Required for {len(matches)} matches:\n\n"
+        for i, match in enumerate(matches[:5]):  # Show first 5
+            review_text += f"{i+1}. {match.bank_transaction.description[:40]}... "
+            review_text += f"(Confidence: {match.confidence_score:.3f})\n"
+        
+        if len(matches) > 5:
+            review_text += f"... and {len(matches) - 5} more matches\n"
+        
+        review_text += "\nDetailed review dialog to be implemented."
+        
+        QMessageBox.information(self, "Review Required", review_text)
+
+    @Slot(object, str)
+    def _handle_match_action(self, match_or_transaction, action):
+        """Handle actions on matches or transactions"""
+        if action == "view":
+            # Show match details
+            if hasattr(match_or_transaction, 'bank_transaction'):
+                details = f"Match Details:\n\n"
+                details += f"Bank: {match_or_transaction.bank_transaction.description}\n"
+                details += f"Amount: £{match_or_transaction.bank_transaction.amount:.2f}\n"
+                details += f"Date: {match_or_transaction.bank_transaction.date}\n\n"
+                details += f"ERP: {match_or_transaction.erp_transaction.description}\n"
+                details += f"Amount: £{match_or_transaction.erp_transaction.amount:.2f}\n"
+                details += f"Date: {match_or_transaction.erp_transaction.date}\n\n"
+                details += f"Confidence: {match_or_transaction.confidence_score:.3f}"
+                QMessageBox.information(self, "Match Details", details)
+            else:
+                QMessageBox.information(self, "Transaction Details", f"Transaction: {match_or_transaction.description}")
+        
+        elif action == "manual_match":
+            QMessageBox.information(self, "Manual Match", "Manual matching dialog to be implemented.")
+        
+        elif action == "exception":
+            QMessageBox.information(self, "Exception", "Exception marking functionality to be implemented.")
+        
+        else:
+            QMessageBox.information(self, "Action", f"Action '{action}' to be implemented.")
         
     def _create_header_with_account_selector(self, layout):
         """Add welcome header with bank account selector"""
@@ -436,7 +497,7 @@ class MainWindow(QMainWindow):
         return action
 
     def _apply_styles(self):
-        """Apply styles from QSS file - UPDATED to fix combobox issues."""
+        """Set object names for CSS targeting - NO stylesheet loading"""
                 
         # Set object name for bank account selector (for targeted styling)
         if hasattr(self, 'combo_bank_account'):
@@ -996,41 +1057,160 @@ class MainWindow(QMainWindow):
             )
             return
         
-        account_config = self.account_service.get_account_config(self.current_bank_account)
+        if not self.data_service.is_ready_for_reconciliation:
+            QMessageBox.warning(self, "Missing Data", "Please import both bank statement and ERP data first.")
+        return
+    
+        # Clear previous results and show progress
+        if hasattr(self, 'transaction_tables'):
+            self.transaction_tables._clear_all_results()
         
-        # Check if data has been imported
-        if self.bank_data is None or self.ledger_data is None:
-            QMessageBox.warning(
-                self, "Missing Data", 
-                "Please import both bank statement and ledger data first."
-            )
-            return
+        if hasattr(self, 'action_buttons_widget'):
+            self.action_buttons_widget.set_operation_in_progress("Auto Reconciliation", True)
         
-        self.status_bar.showMessage(f"Running reconciliation for {self.current_bank_account}...")
+        self.status_bar.showMessage("Running reconciliation...")
         
+        # Use QTimer to allow UI to update before starting heavy computation
+        QTimer.singleShot(100, self._perform_reconciliation)
+    
+    def _perform_reconciliation(self):
+        """Perform the actual reconciliation work"""
+
         try:
-            bank_tx = self._df_to_transactions(self.bank_data)
-            erp_tx = self._df_to_transactions(self.ledger_data)
-            self.matching_viewmodel.load_transactions(bank_tx, erp_tx)
-            matches = self.matching_viewmodel.run_auto_match()
-            self.reconciliation_results = matches
+            start_time = time.time()
             
-            QMessageBox.information(
-                self, "Reconciliation Started", 
-                f"Reconciliation process started for:\n"
-                f"Account: {self.current_bank_account}\n"
-                f"Currency: {account_config['currency']}\n"
-                f"ERP Account: {account_config['erp_account_code']}"
+            # Get data from service
+            bank_statement = self.data_service.bank_statement
+            erp_transactions = self.data_service.erp_transactions
+            
+            if not bank_statement or not erp_transactions:
+                raise ValueError("Missing bank or ERP data")
+            
+            # Convert bank statement to TransactionData format
+            bank_tx = []
+            for transaction in bank_statement.transactions:
+                bank_tx.append(TransactionData(
+                    date=str(transaction.date),
+                    description=transaction.description,
+                    amount=transaction.amount,
+                    source='bank'
+                ))
+
+            # Run reconciliation
+            self.matching_viewmodel.load_transactions(bank_tx, erp_transactions)
+            matches = self.matching_viewmodel.run_auto_match()
+            
+            # Calculate processing time
+            processing_time = time.time() - start_time
+            
+            # Store results
+            self.reconciliation_results = matches
+            self.data_service.set_reconciliation_results(matches)
+            
+            # Calculate unmatched transactions
+            unmatched_bank = self._calculate_unmatched_bank(bank_tx, matches)
+            unmatched_erp = self._calculate_unmatched_erp(erp_transactions, matches)
+            
+            # Display results
+            if hasattr(self, 'transaction_tables'):
+                self.transaction_tables.populate_reconciliation_results(
+                    matches, unmatched_bank, unmatched_erp
+                )
+            
+            # Update AI results display
+            self._update_ai_results_display(matches)
+            
+            # Show completion message
+            success_msg = (
+                f"Reconciliation completed in {processing_time:.2f} seconds!\n\n"
+                f"✓ Matched: {len(matches)}\n"
+                f"⚠ Unmatched Bank: {len(unmatched_bank)}\n"
+                f"⚠ Unmatched ERP: {len(unmatched_erp)}\n\n"
+                f"View results in the tables below."
             )
             
-            logger.info(f"Running reconciliation for account: {self.current_bank_account}")
-            logger.debug(f"Account configuration: {account_config}")
+            QMessageBox.information(self, "Reconciliation Complete", success_msg)
+            
+            # Switch to results view
+            if hasattr(self, 'tab_widget'):
+                self.tab_widget.setCurrentIndex(2)  # Matching & Reconciliation tab
+            
+            logger.info(f"Reconciliation completed: {len(matches)} matches in {processing_time:.2f}s")
             
         except Exception as e:
-            QMessageBox.critical(
-                self, "Reconciliation Error", 
-                f"Failed to run reconciliation:\n{str(e)}"
-            )
+            error_msg = f"Reconciliation failed: {str(e)}"
+            logger.error(error_msg)
+            QMessageBox.critical(self, "Reconciliation Error", error_msg)
+        
+        finally:
+            # Stop progress indication
+            if hasattr(self, 'action_buttons_widget'):
+                self.action_buttons_widget.set_operation_in_progress("Auto Reconciliation", False)
+            
+            self.status_bar.showMessage("Ready")
+
+    
+    def _calculate_unmatched_bank(self, bank_transactions, matches):
+        """Calculate unmatched bank transactions"""
+        matched_amounts = set()
+    
+        for match in matches:
+            if hasattr(match, 'bank_transaction'):
+                matched_amounts.add((match.bank_transaction.amount, match.bank_transaction.description))
+        
+        unmatched = []
+        for tx in bank_transactions:
+            key = (tx.amount, tx.description)
+            if key not in matched_amounts:
+                unmatched.append(tx)
+        
+        return unmatched
+
+    def _calculate_unmatched_erp(self, erp_transactions, matches):
+        """Calculate unmatched ERP transactions"""
+        matched_amounts = set()
+        
+        for match in matches:
+            if hasattr(match, 'erp_transaction'):
+                matched_amounts.add((match.erp_transaction.amount, match.erp_transaction.description))
+        
+        unmatched = []
+        for tx in erp_transactions:
+            key = (tx.amount, tx.description)
+            if key not in matched_amounts:
+                unmatched.append(tx)
+        
+        return unmatched
+
+    def _update_ai_results_display(self, matches):
+        """Update the AI results widget with match statistics"""
+        if not hasattr(self, 'ai_results_widget') or not matches:
+            return
+        
+        # Classify matches by confidence
+        high_confidence = len([m for m in matches if m.confidence_score >= 0.8])
+        medium_confidence = len([m for m in matches if 0.5 <= m.confidence_score < 0.8])
+        low_confidence = len([m for m in matches if m.confidence_score < 0.5])
+        
+        total_matches = len(matches)
+        accuracy = (high_confidence / max(total_matches, 1)) * 100
+        precision = (high_confidence / max(high_confidence + low_confidence, 1)) * 100
+        
+        # Update labels if they exist
+        if hasattr(self, 'lbl_high'):
+            self.lbl_high.setText(f"High Confidence: {high_confidence}")
+        if hasattr(self, 'lbl_med'):
+            self.lbl_med.setText(f"Medium Confidence: {medium_confidence}")
+        if hasattr(self, 'lbl_low'):
+            self.lbl_low.setText(f"Low Confidence: {low_confidence}")
+        if hasattr(self, 'lbl_accuracy'):
+            self.lbl_accuracy.setText(f"Accuracy: {accuracy:.1f}%")
+        if hasattr(self, 'lbl_precision'):
+            self.lbl_precision.setText(f"Precision: {precision:.1f}%")
+    
+
+    
+    
     
     @Slot()
     def train_ai_model(self):

@@ -91,7 +91,7 @@ def load_application_stylesheet(app):
     styles are always concatenated with the base stylesheet.
     """
     try:
-        stylesheet_path = Path("resources/styles/main.qss")
+        stylesheet_path = Path(__file__).parent / "resources" / "styles" / "main.qss"
         if not stylesheet_path.exists():
             logger.warning(f"Stylesheet not found: {stylesheet_path}")
             return

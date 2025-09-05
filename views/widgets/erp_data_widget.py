@@ -892,6 +892,18 @@ class ERPDataWidget(QWidget):
     
     def _clear_data(self):
         """Clear loaded data."""
+
+        if hasattr(self.viewmodel, 'clear_data'):
+            self.viewmodel.clear_data()
+        
+        self.file_path_label.setText("No file selected")
+        self.sheet_combo.setVisible(False)
+        self.sheet_combo.setCurrentIndex(0)
+        self.date_column_combo.setCurrentIndex(0)
+        self.description_column_combo.setCurrentIndex(0)
+        self.amount_column_combo.setCurrentIndex(0)
+        self.reference_column_combo.setCurrentIndex(0)
+
         self.viewmodel._erp_transactions = []
         self.viewmodel.notify_property_changed('erp_transactions', [])
         self.viewmodel._query_results = pd.DataFrame()
