@@ -69,7 +69,21 @@ def test_parse_amount_malformed():
     assert fp._parse_amount("notanumber") == 0.0
     assert fp._parse_amount("") == 0.0
 
+def test_extract_amount_sign_handling():
+    fp = make_file_processor()
+    # Row: date, description, debit, credit
+    row_debit = pd.Series(["2024-01-01", "Payment", "100", ""], dtype="object")
+    row_credit = pd.Series(["2024-01-01", "Payment", "", "100"], dtype="object")
+    column_map = {"date": 0, "description": 1, "debit": 2, "credit": 3}
 
+    assert fp._extract_amount(row_debit, column_map) == 100
+    assert fp._extract_amount(row_credit, column_map) == -100
+
+    # Old behaviour can still be enabled
+    fp_old = FileProcessor(MagicMock(), debit_positive=False)
+    assert fp_old._extract_amount(row_debit, column_map) == -100
+    assert fp_old._extract_amount(row_credit, column_map) == 100
+    
 def test_find_header_row_with_keywords():
     df = pd.DataFrame([
         ["foo", "bar"],

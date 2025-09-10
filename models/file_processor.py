@@ -22,9 +22,19 @@ DATE_REGEX = re.compile(r"\b(\d{1,2}[.\/]\d{1,2}(?:[.\/]\d{2,4})?)\b")
 
 
 class FileProcessor(BaseFileProcessor):
-    """Handles file I/O and bank statement parsing."""
+    """Handles file I/O and bank statement parsing.
+    Parameters
+    ----------
+    templates_manager:
+        Object providing access to bank templates.
+    debit_positive:
+        When ``True`` (default), debit amounts remain positive and credit
+        amounts become negative. When ``False`` the opposite convention is
+        applied. This allows adapting to differing statement formats from
+        various data sources.
+    """
     
-    def __init__(self, templates_manager):
+    def __init__(self, templates_manager, debit_positive: bool = True):
         super().__init__()
         self.templates_manager = templates_manager
      
@@ -192,7 +202,11 @@ class FileProcessor(BaseFileProcessor):
             if pd.notna(credit_val) and str(credit_val).strip():
                 credit_amount = self._parse_amount(str(credit_val))
         
-        # ACCOUNTING CONVENTION: Credit - Debit
+        # ACCOUNTING CONVENTION:
+        #   debit_positive=True  -> Debits positive, Credits negative
+        #   debit_positive=False -> Credits positive, Debits negative
+        if self.debit_positive:
+            return debit_amount - credit_amount
         return credit_amount - debit_amount
     
     def _parse_amount(self, amount_str: str) -> float:

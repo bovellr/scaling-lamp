@@ -65,7 +65,7 @@ class MatchingViewModel(BaseViewModel):
     # ------------------------------------------------------------------
     # Matching logic
     # ------------------------------------------------------------------
-    def run_auto_match(self, confidence_threshold: float = 0.5) -> List[TransactionMatch]:
+    def run_auto_match(self, confidence_threshold: float = 0.4) -> List[TransactionMatch]:
         """Run the ML-based matcher and return potential matches."""
         try:
             self.matching_started.emit()

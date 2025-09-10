@@ -15,6 +15,7 @@ from pathlib import Path
 from typing import Dict, List, Optional, Tuple, Any
 from datetime import datetime
 import logging
+import config
 
 from .base_file_processor import BaseFileProcessor
 
@@ -346,31 +347,34 @@ class ERPFileProcessor(BaseFileProcessor):
         
         # If we found both credits and debits columns
         if credits_idx is not None and debits_idx is not None:
+            method = 'credits_minus_debits' if config.ERP_POSITIVE_CREDITS else 'debits_minus_credits'
             return {
                 'type': 'combined',
                 'credits_column': credits_idx,
                 'debits_column': debits_idx,
                 'credits_name': original_columns[credits_idx],
                 'debits_name': original_columns[debits_idx],
-                'method': 'credits_minus_debits'  # Credits positive, Debits negative
+                'method': 'method'  # Credits positive, Debits negative
             }
         
         # If we found only credits column
         if credits_idx is not None:
+            method = 'direct' if config.ERP_POSITIVE_CREDITS else 'negate'
             return {
                 'type': 'single',
                 'column': credits_idx,
                 'column_name': original_columns[credits_idx],
-                'method': 'direct'
+                'method': method
             }
         
         # If we found only debits column  
         if debits_idx is not None:
+            method = 'negate' if config.ERP_POSITIVE_CREDITS else 'direct'
             return {
                 'type': 'single',
                 'column': debits_idx,
                 'column_name': original_columns[debits_idx],
-                'method': 'negate'  # Make debits negative
+                'method': method
             }
         
         # Look for balance/ledger columns as fallback
@@ -531,14 +535,17 @@ class ERPFileProcessor(BaseFileProcessor):
                 debits = pd.to_numeric(debits_col, errors='coerce').fillna(0)
                 
                 if amount_config['method'] == 'credits_minus_debits':
-                    # Credits positive, Debits negative
+                    # Legacy behaviour: credits positive, debits negative
                     amounts = credits - debits
+                elif amount_config['method'] == 'debits_minus_credits':
+                    # New default: debits positive, credits negative
+                    amounts = debits - credits
                 elif amount_config['method'] == 'sum':
                     # Both positive (rare case)
                     amounts = credits + debits
                 else:
-                    # Default: Credits positive, Debits negative
-                    amounts = credits - debits
+                    # Default to debits positive, credits negative
+                    amounts = debits - credits
                 
                 return amounts
             

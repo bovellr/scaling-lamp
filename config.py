@@ -37,3 +37,7 @@ REPORT_FILE = OUTPUT_DIR / "reconciliation_report.xlsx"
 # Model settings
 MATCH_CONFIDENCE_THRESHOLD = 0.7
 MODEL_VERSION = "v1.0.0"
+
+# ERP processing settings
+# Set to True for datasets where credits are positive and debits are negative
+ERP_POSITIVE_CREDITS = False

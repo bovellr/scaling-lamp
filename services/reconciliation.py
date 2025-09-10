@@ -76,8 +76,9 @@ def reconcile_transactions(
         for gl_tx in gl_transactions:
             gl_date = datetime.fromisoformat(str(gl_tx.date)).date()
 
-            # Base similarity metrics
-            amount_score = 1.0 if abs(abs(bank_tx.amount) - abs(gl_tx.amount)) < 0.01 else 0.0
+            # Base similarity metrics - amounts are compared using a unified sign
+            # convention where debits are positive and credits are negative.
+            amount_score = 1.0 if abs(bank_tx.amount - gl_tx.amount) < 0.01 else 0.0
 
             # ENHANCED: Add tolerance for very close amounts
             if amount_score == 0.0:

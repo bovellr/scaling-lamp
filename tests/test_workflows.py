@@ -23,8 +23,9 @@ def create_sample_files(tmp_path: Path):
     ledger_file = tmp_path / "ledger.csv"
     ledger_file.write_text(
         "Date,Description,Amount,AccountCode\n"
-        "11/04/2025,Payment A,-200,1001\n"
-        "12/04/2025,Payment B,100,1001\n"
+        # Ledger uses the same sign convention: debits positive, credits negative
+        "11/04/2025,Payment A,200,1001\n"
+        "12/04/2025,Payment B,-100,1001\n"
     )
     return bank_file, ledger_file
 
