@@ -469,11 +469,11 @@ class EnhancedTransactionTablesWidget(QGroupBox):
         self.tables_tabs.setTabText(3, "⚡ Review Required (0)")
         
         # Reset summary
-        self.matched_count_label.setText("Matched: 0")
-        self.unmatched_bank_count_label.setText("Unmatched Bank: 0")
-        self.unmatched_erp_count_label.setText("Unmatched ERP: 0")
-        self.review_count_label.setText("Review Required: 0")
-        self.accuracy_label.setText("Accuracy: 0%")
+        #self.matched_count_label.setText("Matched: 0")
+        #self.unmatched_bank_count_label.setText("Unmatched Bank: 0")
+        #self.unmatched_erp_count_label.setText("Unmatched ERP: 0")
+        #self.review_count_label.setText("Review Required: 0")
+        #self.accuracy_label.setText("Accuracy: 0%")
     
     def _refresh_tables(self):
         """Refresh all tables after data changes"""
