@@ -119,7 +119,7 @@ class MatchingViewModel(BaseViewModel):
             # pandas handles various date formats gracefully
             date_val = pd.to_datetime(data.date).to_pydatetime()
         return Transaction(
-            id=str(idx),
+            id=getattr(data, "transaction_id", str(idx)),
             date=date_val,
             description=data.description,
             amount=data.amount,

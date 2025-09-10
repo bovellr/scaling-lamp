@@ -17,6 +17,7 @@ from datetime import datetime
 import re
 import logging
 from pathlib import Path
+import uuid
 
 try:  # Optional dependency
     import pandas as pd  # type: ignore
@@ -50,6 +51,7 @@ class TransactionData:
     category: Optional[str] = None
     description_date: Optional[str] = None
     normalized_description: Optional[str] = None
+    transaction_id: str = field(default_factory=lambda: uuid.uuid4().hex)
     
     def to_dict(self) -> Dict[str, Any]:
         return asdict(self)

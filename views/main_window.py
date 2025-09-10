@@ -40,8 +40,8 @@ from .widgets.erp_data_widget import ERPDataWidget
 
 # Import ViewModels (only for local state, services come from DI)
 from viewmodels.erp_database_viewmodel import ERPDatabaseViewModel
-from viewmodels.matching_viewmodel import MatchingViewModel
-from models.data_models import TransactionData, TransactionMatch
+from viewmodels.reconciliation_viewmodel import ReconciliationViewModel
+from models.data_models import TransactionData
 from services.account_service import AccountService
 
 logger = logging.getLogger(__name__)
@@ -64,7 +64,7 @@ class MainWindow(QMainWindow):
 
         # Local ViewModels (not managed by DI)
         self.erp_viewmodel = ERPDatabaseViewModel()
-        self.matching_viewmodel = MatchingViewModel()
+        self.reconciliation_vm = ReconciliationViewModel()
 
         # Initialize state variables
         self._init_state_variables()
@@ -140,6 +140,7 @@ class MainWindow(QMainWindow):
         self.status_bar.setObjectName("mainStatusBar")
         self.status_bar.setProperty("status", "info")
 
+    # Connect data service signals for button state management
     def connect_signals(self):
         """Connect all signal handlers"""
         # Account selector signals
@@ -148,24 +149,39 @@ class MainWindow(QMainWindow):
         
         # NEW: Connect data service signals for button state management
         if hasattr(self, 'data_service'):
-            self.data_service.bank_data_loaded.connect(self._on_data_loaded)
-            self.data_service.erp_data_loaded.connect(self._on_data_loaded)
+            self.data_service.bank_data_loaded.connect(self.update_reconcile_button_state)
+            self.data_service.erp_data_loaded.connect(self.update_reconcile_button_state)
+            self.data_service.data_cleared.connect(self.update_reconcile_button_state)
             self.data_service.reconciliation_completed.connect(self._on_reconciliation_completed)
+
+        if hasattr(self, 'reconciliation_vm'):
+            self.reconciliation_vm.reconciliation_started.connect(self._on_reconciliation_started)
+            self.reconciliation_vm.reconciliation_completed.connect(self._on_reconciliation_completed)
+            self.reconciliation_vm.reconciliation_failed.connect(self._on_reconciliation_failed)
      
     @Slot()
-    def _on_data_loaded(self):
-        """Handle when data is loaded to update button states"""
-        is_ready = self.data_service.is_ready_for_reconciliation
-        
+    def _on_reconciliation_started(self):
+        """Handle UI updates when reconciliation starts"""
         if hasattr(self, 'action_buttons_widget'):
-            self.action_buttons_widget.set_data_ready(is_ready)
-        elif hasattr(self, 'btn_auto_match'):
-            self.btn_auto_match.setEnabled(is_ready)
+            self.action_buttons_widget.set_operation_in_progress("Auto Reconciliation", True)
+        self.status_bar.showMessage("Running reconciliation...")
+
 
     @Slot(list)
     def _on_reconciliation_completed(self, matches):
         """Handle reconciliation completion"""
+        if hasattr(self, 'action_buttons_widget'):
+            self.action_buttons_widget.set_operation_in_progress("Auto Reconciliation", False)
+        self.status_bar.showMessage("Ready")
         logger.info(f"Reconciliation completed with {len(matches)} matches")
+
+    @Slot(str)
+    def _on_reconciliation_failed(self, error):
+        """Handle reconciliation errors"""
+        if hasattr(self, 'action_buttons_widget'):
+            self.action_buttons_widget.set_operation_in_progress("Auto Reconciliation", False)
+        self.status_bar.showMessage("Ready")
+        logger.error(f"Reconciliation failed: {error}")
         
     @Slot(list)
     def _open_review_dialog(self, matches):
@@ -953,14 +969,12 @@ class MainWindow(QMainWindow):
 
     def update_reconcile_button_state(self):
         """Enable Auto Reconcile only when both datasets are available."""
-        bank_ready = self.data_service.bank_statement is not None
-        erp_ready = len(self.data_service.erp_transactions) > 0
-    
-        print(f"Bank ready: {bank_ready}")
-        print(f"ERP ready: {erp_ready}")  
-        print(f"Ready for reconciliation: {self.data_service.is_ready_for_reconciliation}")
-        can_reconcile = self.bank_data is not None and self.ledger_data is not None
-        self.btn_auto_match.setEnabled(can_reconcile)
+        is_ready = self.data_service.is_ready_for_reconciliation
+
+        if hasattr(self, 'action_buttons_widget'):
+            self.action_buttons_widget.set_data_ready(is_ready)
+        elif hasattr(self, 'btn_auto_match'):
+            self.btn_auto_match.setEnabled(is_ready)
     
     @Slot()
     def import_bank_statement(self):
@@ -1097,26 +1111,44 @@ class MainWindow(QMainWindow):
     @Slot()
     def run_reconciliation(self):
         """Run the reconciliation process for the selected account"""
+
+        logger.info("=== AUTO RECONCILE BUTTON CLICKED ===")
+    
+        # Debug current state
+        logger.info(f"Current bank account: {self.current_bank_account}")
+        logger.info(f"Data service exists: {hasattr(self, 'data_service')}")
+        
+        if hasattr(self, 'data_service'):
+            logger.info(f"Bank statement loaded: {self.data_service.bank_statement is not None}")
+            logger.info(f"ERP transactions count: {len(self.data_service.erp_transactions)}")
+            logger.info(f"Ready for reconciliation: {self.data_service.is_ready_for_reconciliation}")
+            
+            if self.data_service.bank_statement:
+                logger.info(f"Bank transactions count: {len(self.data_service.bank_statement.transactions)}")
+        
         # Check if account is selected
         if self.current_bank_account is None:
+            logger.warning("No bank account selected")
             QMessageBox.warning(
                 self, "No Account Selected", 
                 "Please select a bank account first."
             )
             return
-        
+
+        # Check data availability
         if not self.data_service.is_ready_for_reconciliation:
+            logger.warning("Data not ready for reconciliation")
             QMessageBox.warning(self, "Missing Data", "Please import both bank statement and ERP data first.")
-        return
+            return
     
+        logger.info("Starting reconciliation process...")
+        
         # Clear previous results and show progress
         if hasattr(self, 'transaction_tables'):
+            logger.info("Clearing previous results")
             self.transaction_tables._clear_all_results()
-        
-        if hasattr(self, 'action_buttons_widget'):
-            self.action_buttons_widget.set_operation_in_progress("Auto Reconciliation", True)
-        
-        self.status_bar.showMessage("Running reconciliation...")
+        else:
+            logger.warning("Transaction tables not found")
         
         # Use QTimer to allow UI to update before starting heavy computation
         QTimer.singleShot(100, self._perform_reconciliation)
@@ -1136,17 +1168,17 @@ class MainWindow(QMainWindow):
             
             # Convert bank statement to TransactionData format
             bank_tx = []
-            for transaction in bank_statement.transactions:
+            for idx, transaction in enumerate(bank_statement.transactions):
                 bank_tx.append(TransactionData(
                     date=str(transaction.date),
                     description=transaction.description,
                     amount=transaction.amount,
-                    source='bank'
+                    original_row_index=idx,
+                    transaction_id=getattr(transaction, 'id', None)
                 ))
 
             # Run reconciliation
-            self.matching_viewmodel.load_transactions(bank_tx, erp_transactions)
-            matches = self.matching_viewmodel.run_auto_match()
+            matches = self.reconciliation_vm.reconcile(bank_tx, erp_transactions)
             
             # Calculate processing time
             processing_time = time.time() - start_time
@@ -1189,45 +1221,37 @@ class MainWindow(QMainWindow):
             error_msg = f"Reconciliation failed: {str(e)}"
             logger.error(error_msg)
             QMessageBox.critical(self, "Reconciliation Error", error_msg)
-        
-        finally:
-            # Stop progress indication
-            if hasattr(self, 'action_buttons_widget'):
-                self.action_buttons_widget.set_operation_in_progress("Auto Reconciliation", False)
-            
-            self.status_bar.showMessage("Ready")
-
-    
+           
     def _calculate_unmatched_bank(self, bank_transactions, matches):
         """Calculate unmatched bank transactions"""
-        matched_amounts = set()
+        matched_ids = set()
     
         for match in matches:
             if hasattr(match, 'bank_transaction'):
-                matched_amounts.add((match.bank_transaction.amount, match.bank_transaction.description))
+                matched_ids.add(getattr(match.bank_transaction, 'id', None))
         
         unmatched = []
         for tx in bank_transactions:
-            key = (tx.amount, tx.description)
-            if key not in matched_amounts:
+            tx_id = getattr(tx, 'transaction_id', None)
+            if tx_id not in matched_ids:
                 unmatched.append(tx)
         
         return unmatched
 
     def _calculate_unmatched_erp(self, erp_transactions, matches):
         """Calculate unmatched ERP transactions"""
-        matched_amounts = set()
+        matched_ids = set()
         
         for match in matches:
             if hasattr(match, 'erp_transaction'):
-                matched_amounts.add((match.erp_transaction.amount, match.erp_transaction.description))
+                matched_ids.add(getattr(match.erp_transaction, 'id', None))
         
         unmatched = []
         for tx in erp_transactions:
-            key = (tx.amount, tx.description)
-            if key not in matched_amounts:
+            tx_id = getattr(tx, 'transaction_id', None)
+            if tx_id not in matched_ids:
                 unmatched.append(tx)
-        
+       
         return unmatched
 
     def _update_ai_results_display(self, matches):
@@ -1255,18 +1279,14 @@ class MainWindow(QMainWindow):
             self.lbl_accuracy.setText(f"Accuracy: {accuracy:.1f}%")
         if hasattr(self, 'lbl_precision'):
             self.lbl_precision.setText(f"Precision: {precision:.1f}%")
-    
-
-    
-    
-    
+  
     @Slot()
     def train_ai_model(self):
         """Train the AI model"""
         self.status_bar.showMessage("Training AI model...")
         
         try:
-            self.matching_viewmodel.train_model()
+            self.reconciliation_vm.matching_vm.train_model()
             QMessageBox.information(self, "AI Training", "AI model training started!")
             logger.info("Training AI model")
         except Exception as e:
@@ -1274,7 +1294,6 @@ class MainWindow(QMainWindow):
                 self, "Training Error",
                 f"Failed to train model:\n{str(e)}"
             )
-
     
     @Slot()
     def review_low_confidence(self):
