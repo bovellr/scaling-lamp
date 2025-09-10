@@ -42,10 +42,19 @@ def compute_transaction_features(
     bank_date = _to_datetime(bank_date)
     erp_date = _to_datetime(erp_date)
 
-    amount_diff = abs(float(bank_amount) - float(erp_amount))
+    amount_diff = abs(abs(float(bank_amount)) - abs(float(erp_amount)))
     date_diff = abs((bank_date - erp_date).days)
     desc_sim = token_sort_ratio(str(bank_description), str(erp_description))
-    signed_match = int((float(bank_amount) > 0) == (float(erp_amount) > 0))
+    
+    # add tolerance for minor sign differences due to rounding
+    amount_threshold = 0.01
+    if abs(float(bank_amount)) < amount_threshold or abs(float(erp_amount)) < amount_threshold:
+        # Near-zero amounts get sign match benefit
+        signed_match = 1
+    else:
+        # Normal sign comparison (should now be consistent)
+        signed_match = int((float(bank_amount) > 0) == (float(erp_amount) > 0))
+    
     same_day = int(bank_date.date() == erp_date.date())
 
     return {

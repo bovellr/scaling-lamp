@@ -174,22 +174,26 @@ class FileProcessor(BaseFileProcessor):
     
     def _extract_amount(self, row: pd.Series, column_map: Dict[str, int]) -> float:
         """Extract amount from transaction row."""
+        debit_amount = 0.0
+        credit_amount = 0.0
+        
         if 'amount' in column_map:
             amount_val = row.iloc[column_map['amount']]
             if pd.notna(amount_val):
                 return self._parse_amount(str(amount_val))
         
-        if 'credit' in column_map:
-            credit_val = row.iloc[column_map['credit']]
-            if pd.notna(credit_val) and str(credit_val).strip():
-                return self._parse_amount(str(credit_val))
-        
         if 'debit' in column_map:
             debit_val = row.iloc[column_map['debit']]
             if pd.notna(debit_val) and str(debit_val).strip():
-                return -self._parse_amount(str(debit_val))
+                debit_amount = self._parse_amount(str(debit_val))
         
-        return 0.0
+        if 'credit' in column_map:
+            credit_val = row.iloc[column_map['credit']]
+            if pd.notna(credit_val) and str(credit_val).strip():
+                credit_amount = self._parse_amount(str(credit_val))
+        
+        # ACCOUNTING CONVENTION: Credit - Debit
+        return credit_amount - debit_amount
     
     def _parse_amount(self, amount_str: str) -> float:
         """Parse amount string with currency/parentheses support."""

@@ -10,12 +10,11 @@
 Enhanced transaction tables widget with tabbed interface for different match categories
 """
 from PySide6.QtWidgets import (QGroupBox, QVBoxLayout, QHBoxLayout, QTabWidget, QTableWidget, 
-                            QTableWidgetItem, QHeaderView, QPushButton, QLabel, QFrame,
+                            QTableWidgetItem, QHeaderView, QPushButton, QFrame,
                             QAbstractItemView, QMenu, QMessageBox)
 from PySide6.QtCore import Signal, Slot, Qt
 from PySide6.QtGui import QAction, QColor, QBrush
-from typing import List, Dict, Any, Optional
-import pandas as pd
+from typing import List
 
 from models.data_models import TransactionMatch, TransactionData, MatchStatus
 
@@ -285,45 +284,6 @@ class EnhancedTransactionTablesWidget(QGroupBox):
         self.action_buttons = self._create_action_buttons()
         layout.addWidget(self.action_buttons)
     
-    def _create_summary_frame(self) -> QFrame:
-        """Create summary statistics frame"""
-        frame = QFrame()
-        frame.setFrameStyle(QFrame.Box)
-        frame.setStyleSheet("""
-            QFrame {
-                background-color: #f8f9fa;
-                border: 1px solid #dee2e6;
-                border-radius: 4px;
-                padding: 10px;
-                margin: 5px;
-            }
-        """)
-        
-        layout = QHBoxLayout(frame)
-        
-        self.matched_count_label = QLabel("Matched: 0")
-        self.unmatched_bank_count_label = QLabel("Unmatched Bank: 0")
-        self.unmatched_erp_count_label = QLabel("Unmatched ERP: 0")
-        self.review_count_label = QLabel("Review Required: 0")
-        self.accuracy_label = QLabel("Accuracy: 0%")
-        
-        # Style labels
-        for label in [self.matched_count_label, self.unmatched_bank_count_label, 
-                     self.unmatched_erp_count_label, self.review_count_label, self.accuracy_label]:
-            label.setStyleSheet("font-weight: bold; padding: 5px;")
-        
-        layout.addWidget(self.matched_count_label)
-        layout.addWidget(QFrame())  # Separator
-        layout.addWidget(self.unmatched_bank_count_label)
-        layout.addWidget(QFrame())  # Separator
-        layout.addWidget(self.unmatched_erp_count_label)
-        layout.addWidget(QFrame())  # Separator
-        layout.addWidget(self.review_count_label)
-        layout.addStretch()
-        layout.addWidget(self.accuracy_label)
-        
-        return frame
-    
     def _create_action_buttons(self) -> QFrame:
         """Create action buttons frame"""
         frame = QFrame()
@@ -379,36 +339,11 @@ class EnhancedTransactionTablesWidget(QGroupBox):
         self.tables_tabs.setTabText(2, f"⚠ Unmatched ERP ({len(unmatched_erp)})")
         self.tables_tabs.setTabText(3, f"⚡ Review Required ({len(review_matches)})")
         
-        # Update summary
-        self._update_summary(high_confidence, unmatched_bank, unmatched_erp, review_matches)
-        
+              
         # Enable/disable action buttons
         self.review_all_btn.setEnabled(len(review_matches) > 0)
         self.export_results_btn.setEnabled(len(matches) > 0)
-    
-    def _update_summary(self, matched: List[TransactionMatch], unmatched_bank: List[TransactionData],
-                       unmatched_erp: List[TransactionData], review: List[TransactionMatch]):
-        """Update summary statistics"""
-        total_bank = len(matched) + len(unmatched_bank) + len(review)
-        total_erp = len(matched) + len(unmatched_erp) + len(review)
-        
-        accuracy = (len(matched) / max(total_bank, 1)) * 100
-        
-        self.matched_count_label.setText(f"Matched: {len(matched)}")
-        self.unmatched_bank_count_label.setText(f"Unmatched Bank: {len(unmatched_bank)}")
-        self.unmatched_erp_count_label.setText(f"Unmatched ERP: {len(unmatched_erp)}")
-        self.review_count_label.setText(f"Review Required: {len(review)}")
-        self.accuracy_label.setText(f"Accuracy: {accuracy:.1f}%")
-        
-        # Color code accuracy
-        if accuracy >= 80:
-            color = "green"
-        elif accuracy >= 60:
-            color = "orange"
-        else:
-            color = "red"
-        self.accuracy_label.setStyleSheet(f"font-weight: bold; color: {color}; padding: 5px;")
-    
+     
     @Slot(object, str)
     def _handle_unmatched_action(self, transaction: TransactionData, action: str):
         """Handle actions on unmatched transactions"""
@@ -468,13 +403,6 @@ class EnhancedTransactionTablesWidget(QGroupBox):
         self.tables_tabs.setTabText(2, "⚠ Unmatched ERP (0)")
         self.tables_tabs.setTabText(3, "⚡ Review Required (0)")
         
-        # Reset summary
-        #self.matched_count_label.setText("Matched: 0")
-        #self.unmatched_bank_count_label.setText("Unmatched Bank: 0")
-        #self.unmatched_erp_count_label.setText("Unmatched ERP: 0")
-        #self.review_count_label.setText("Review Required: 0")
-        #self.accuracy_label.setText("Accuracy: 0%")
-    
     def _refresh_tables(self):
         """Refresh all tables after data changes"""
         # This would re-populate tables with updated data

@@ -77,13 +77,26 @@ def reconcile_transactions(
             gl_date = datetime.fromisoformat(str(gl_tx.date)).date()
 
             # Base similarity metrics
-            amount_score = 1.0 if abs(bank_tx.amount - gl_tx.amount) < 0.01 else 0.0
-            desc_score = (
-                1.0
-                if _normalize_description(bank_tx.description)
-                == _normalize_description(gl_tx.description)
-                else 0.0
-            )
+            amount_score = 1.0 if abs(abs(bank_tx.amount) - abs(gl_tx.amount)) < 0.01 else 0.0
+
+            # ENHANCED: Add tolerance for very close amounts
+            if amount_score == 0.0:
+                amount_diff = abs(bank_tx.amount - gl_tx.amount)
+                max_amount = max(abs(bank_tx.amount), abs(gl_tx.amount))
+                if max_amount > 0:
+                    # Give partial credit for amounts within 1% difference
+                    similarity_ratio = 1.0 - (amount_diff / max_amount)
+                    if similarity_ratio > 0.99:  # Within 1%
+                        amount_score = 0.8
+                    elif similarity_ratio > 0.95:  # Within 5%
+                        amount_score = 0.5
+                        desc_score = (
+                            1.0
+                            if _normalize_description(bank_tx.description)
+                            == _normalize_description(gl_tx.description)
+                            else 0.0
+                        )
+                        
             date_score = 1.0 if bank_date == gl_date else 0.0
 
             score = amount_score * 0.4 + desc_score * 0.3 + date_score * 0.3
