@@ -90,23 +90,31 @@ def reconcile_transactions(
                         amount_score = 0.8
                     elif similarity_ratio > 0.95:  # Within 5%
                         amount_score = 0.5
-                        desc_score = (
-                            1.0
-                            if _normalize_description(bank_tx.description)
-                            == _normalize_description(gl_tx.description)
-                            else 0.0
-                        )
+            
+            desc_score = (
+                1.0
+                if _normalize_description(bank_tx.description)
+                == _normalize_description(gl_tx.description)
+                else 0.0
+            )
                         
             date_score = 1.0 if bank_date == gl_date else 0.0
 
-            score = amount_score * 0.4 + desc_score * 0.3 + date_score * 0.3
-
-            # If posting dates differ, check for a description date
+            # Enhanced date tolerance
             if date_score == 0.0:
+                days_apart = abs((gl_date - bank_date).days)
+                if days_apart <= 7:  # Within a week gets partial credit
+                    date_score = max(0.2, 1.0 - (days_apart / 7.0) * 0.8)
+
+            score = amount_score * 0.4 + desc_score * 0.3 + date_score * 0.3
+            
+            # If posting dates differ, check for a description date
+            if date_score < 1.0:
                 desc_date = _extract_description_date(gl_tx.description)
                 if desc_date and abs((desc_date - bank_date).days) <= 1:
                     score += 0.2  # boost for description date proximity
 
+                        
             score = min(score, 1.0)
             if score > best_score:
                 best_score = score
