@@ -64,6 +64,13 @@ class FileUploadWidget(QWidget):
         # Action buttons
         self._create_action_buttons(layout)
 
+        # Add object names and initial properties
+        self.use_for_reconciliation_btn.setObjectName("bankDataButton")
+        self.bank_summary_label.setObjectName("bankSummary")
+        
+        self.use_for_reconciliation_btn.setProperty("dataReady", "false")
+        self.bank_summary_label.setProperty("dataStatus", "notReady")
+
     def _create_header(self, parent_layout):
         """Create the header section of the widget."""
         header_label = QLabel("Bank Statement Import")
@@ -261,20 +268,39 @@ class FileUploadWidget(QWidget):
             self.results_table.setVisible(True)
             self.use_for_reconciliation_btn.setEnabled(True)
             self.export_btn.setEnabled(True)
-            
-            # Update bank summary with success styling
+
+            # Update use for reconciliation button
+            self.use_for_reconciliation_btn.setText("✓ Ready for Reconciliation")
+            self.use_for_reconciliation_btn.setProperty("dataReady", "true")
+
+            # Update bank summary
             self.bank_summary_label.setText(f"Bank: {len(statement.transactions)} transactions loaded")
-            self.bank_summary_label.setStyleSheet("padding: 8px; background-color: #d4edda; border: 1px solid #c3e6cb; color: #155724; font-weight: bold;")
+            self.bank_summary_label.setProperty("dataStatus", "ready")
+
+            # Refresh styles to apply changes
+            self._refresh_styles()
+            
         else:
             self.results_table.setVisible(False)
             self.use_for_reconciliation_btn.setEnabled(False)
+            self.use_for_reconciliation_btn.setText("Use for Reconciliation")
+            self.use_for_reconciliation_btn.setProperty("dataReady", "false")
             self.export_btn.setEnabled(False)
 
             # Reset bank summary
-            self.bank_summary_label.setText("Bank: No data")
-            self.bank_summary_label.setStyleSheet("padding: 8px; background-color: #f0f0f0; border: 1px solid #ccc;")
-        
+            self.bank_summary_label.setText("⚪ Bank: No data")  
+            self.bank_summary_label.setProperty("dataStatus", "notReady")
+
+            # Refresh styles to apply changes
+            self._refresh_styles()
   
+    def _refresh_styles(self):
+        """Refresh widget styles after property changes."""
+        widgets = [self.use_for_reconciliation_btn, self.bank_summary_label]
+        for widget in widgets:
+            widget.style().unpolish(widget)
+            widget.style().polish(widget)
+    
     def _update_status(self, result_info):
         """Update status message."""
         if result_info:

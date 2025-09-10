@@ -35,3 +35,90 @@ QPushButton#primaryButton {
 QPushButton#primaryButton:hover {
     background-color: #5a6268;
 }
+
+/* ==========================================================================
+ * BUTTONS.QSS - Add to resources/styles/components/buttons.qss
+ * ========================================================================== */
+
+/* Data Ready Button States */
+QPushButton[dataReady="true"] {
+    background-color: #28a745;
+    color: white;
+    font-weight: bold;
+    border: 2px solid #1e7e34;
+    padding: 10px 20px;
+    border-radius: 6px;
+    font-size: 13px;
+}
+
+QPushButton[dataReady="true"]:hover {
+    background-color: #218838;
+    border-color: #1c7430;
+    transform: translateY(-1px);
+}
+
+QPushButton[dataReady="true"]:pressed {
+    background-color: #1e7e34;
+    transform: translateY(0px);
+}
+
+QPushButton[dataReady="false"] {
+    background-color: #6c757d;
+    color: white;
+    font-weight: normal;
+    border: 1px solid #6c757d;
+    padding: 10px 20px;
+    border-radius: 6px;
+    font-size: 13px;
+}
+
+QPushButton[dataReady="false"]:disabled {
+    background-color: #e9ecef;
+    color: #6c757d;
+    border-color: #dee2e6;
+}
+
+/* Specific button classes for different data types */
+QPushButton#bankDataButton[dataReady="true"] {
+    background-color: #17a2b8; /* Info blue for bank data */
+    border-color: #138496;
+}
+
+QPushButton#bankDataButton[dataReady="true"]:hover {
+    background-color: #138496;
+    border-color: #117a8b;
+}
+
+QPushButton#erpDataButton[dataReady="true"] {
+    background-color: #fd7e14; /* Orange for ERP data */
+    border-color: #e55a00;
+}
+
+QPushButton#erpDataButton[dataReady="true"]:hover {
+    background-color: #e55a00;
+    border-color: #cc5200;
+}
+
+/* Auto Reconcile Button - Special styling when ready */
+QPushButton#autoReconcileButton[dataReady="true"] {
+    background-color: #28a745;
+    color: white;
+    font-weight: bold;
+    font-size: 14px;
+    padding: 12px 24px;
+    border: 2px solid #1e7e34;
+    border-radius: 6px;
+}
+
+QPushButton#autoReconcileButton[dataReady="true"]:hover {
+    background-color: #218838;
+    border-color: #1c7430;
+    box-shadow: 0 4px 8px rgba(40, 167, 69, 0.3);
+}
+
+QPushButton#autoReconcileButton[dataReady="false"] {
+    background-color: #cccccc;
+    color: #666666;
+    font-weight: normal;
+    border: 1px solid #cccccc;
+}

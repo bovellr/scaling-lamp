@@ -135,6 +135,11 @@ class MainWindow(QMainWindow):
         # Apply styles
         self._apply_styles()
 
+        # Set object names for main components
+        self.tab_widget.setObjectName("mainTabWidget")
+        self.status_bar.setObjectName("mainStatusBar")
+        self.status_bar.setProperty("status", "info")
+
     def connect_signals(self):
         """Connect all signal handlers"""
         # Account selector signals
@@ -300,6 +305,8 @@ class MainWindow(QMainWindow):
         """Create the file upload tab"""
         # Create upload widget
         self.upload_widget = FileUploadWidget(viewmodel=self.upload_viewmodel)
+
+        self.upload_widget.bank_data_ready.connect(self.on_bank_statement_ready)
                 
         # Create scroll area for the upload widget
         scroll_area = QScrollArea()
@@ -855,6 +862,14 @@ class MainWindow(QMainWindow):
             f"Bank statement ready: {getattr(statement, 'bank_name', 'Statement')}"
         )
         
+        # ✅ Update tab title with visual indicator
+        self.tab_widget.setTabText(0, "✅ Bank Statement")
+    
+        # Update status bar with property-based styling
+        self.update_status_with_property(
+        f"Bank statement ready: {getattr(statement, 'bank_name', 'Statement')}", 
+        "success"
+    )
         # Switch to ERP tab after statement is ready
         #self.tab_widget.setCurrentIndex(1)
         
@@ -873,7 +888,16 @@ class MainWindow(QMainWindow):
         """Handle ERP data being loaded and ready"""
         self.ledger_data = self._transactions_to_dataframe(erp_transactions)
         self.data_service.set_erp_data(erp_transactions)
-    
+
+        # Update tab title with visual indicator
+        self.tab_widget.setTabText(1, "✅ ERP Transactions")
+
+        # Update status bar with property-based styling
+        self.update_status_with_property(
+            f"ERP data loaded: {len(erp_transactions)} transactions",
+            "success"
+        )
+
         self.status_bar.showMessage(
             f"ERP data loaded: {len(erp_transactions)} transactions"
         )
@@ -893,6 +917,24 @@ class MainWindow(QMainWindow):
             "You can now run reconciliation."
         )
 
+    def update_status_with_property(self, message: str, status_type: str = "info"):
+        """Update status bar with property-based styling."""
+        self.status_bar.showMessage(message)
+        self.status_bar.setProperty("status", status_type)
+        
+        # Refresh style
+        self.status_bar.style().unpolish(self.status_bar)
+        self.status_bar.style().polish(self.status_bar)
+        
+        # Reset after 5 seconds
+        QTimer.singleShot(5000, self._reset_status_bar)
+
+    def _reset_status_bar(self):
+        """Reset status bar to default styling."""
+        self.status_bar.setProperty("status", "info")
+        self.status_bar.style().unpolish(self.status_bar)
+        self.status_bar.style().polish(self.status_bar)
+
     def _transactions_to_dataframe(self, transactions):
         """Convert list of TransactionData to DataFrame"""
         if not transactions:
@@ -911,6 +953,12 @@ class MainWindow(QMainWindow):
 
     def update_reconcile_button_state(self):
         """Enable Auto Reconcile only when both datasets are available."""
+        bank_ready = self.data_service.bank_statement is not None
+        erp_ready = len(self.data_service.erp_transactions) > 0
+    
+        print(f"Bank ready: {bank_ready}")
+        print(f"ERP ready: {erp_ready}")  
+        print(f"Ready for reconciliation: {self.data_service.is_ready_for_reconciliation}")
         can_reconcile = self.bank_data is not None and self.ledger_data is not None
         self.btn_auto_match.setEnabled(can_reconcile)
     

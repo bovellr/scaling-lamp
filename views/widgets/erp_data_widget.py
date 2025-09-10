@@ -114,7 +114,7 @@ class ERPDataWidget(QWidget):
         
         # Action buttons
         action_layout = QHBoxLayout()
-        self.use_data_button = QPushButton("Use This Data for Reconciliation")
+        self.use_data_button = QPushButton("Use for Reconciliation")
         self.export_button = QPushButton("Export Data")
         self.clear_button = QPushButton("Clear Data")
         
@@ -132,6 +132,13 @@ class ERPDataWidget(QWidget):
         
         results_layout.addLayout(action_layout)
         layout.addWidget(results_group)
+
+        # Add object names and initial properties
+        self.use_data_button.setObjectName("erpDataButton")
+        self.results_summary.setObjectName("erpSummary")
+        
+        self.use_data_button.setProperty("dataReady", "false")
+        self.results_summary.setProperty("dataStatus", "notReady")
     
     def _create_database_tab(self) -> QWidget:
         """Create database query tab."""
@@ -439,15 +446,23 @@ class ERPDataWidget(QWidget):
     def _update_results(self, transactions):
         """Update results display."""
         if not transactions:
+            self.use_data_button.setText("Use for Reconciliation")
+            self.use_data_button.setProperty("dataReady", "false")
             self.results_summary.setText("No data loaded")
+            self.results_summary.setProperty("dataStatus", "notReady")
             self.results_table.setRowCount(0)
             self.use_data_button.setEnabled(False)
             self.export_button.setEnabled(False)
             return
         
+        # Update ready state
+        self.use_data_button.setText("✓ Ready for Reconciliation")
+        self.use_data_button.setProperty("dataReady", "true")
+
         # Update summary
         self.results_summary.setText(f"Loaded {len(transactions)} ERP transactions")
-        
+        self.results_summary.setProperty("dataStatus", "ready")
+
         # Update table (show first 100 rows)
         display_count = min(100, len(transactions))
         self.results_table.setRowCount(display_count)
@@ -468,6 +483,16 @@ class ERPDataWidget(QWidget):
         # Enable action buttons
         self.use_data_button.setEnabled(True)
         self.export_button.setEnabled(True)
+
+        # Refresh styles to apply changes
+        self._refresh_styles()
+    
+    def _refresh_styles(self):
+        """Refresh widget styles after property changes."""
+        widgets = [self.use_data_button, self.results_summary]
+        for widget in widgets:
+            widget.style().unpolish(widget)
+            widget.style().polish(widget)
     
     def _update_error_message(self, error):
         """Update error message display."""

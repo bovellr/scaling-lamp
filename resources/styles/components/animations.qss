@@ -1,0 +1,32 @@
+/* ==========================================================================
+ * ANIMATIONS.QSS - Add to resources/styles/components/animations.qss
+ * ========================================================================== */
+
+/* Pulse animation for ready states */
+@keyframes pulse-ready {
+    0% { border-color: #28a745; }
+    50% { border-color: #20c997; }
+    100% { border-color: #28a745; }
+}
+
+QPushButton[dataReady="true"][animate="true"] {
+    animation: pulse-ready 2s infinite;
+}
+
+QLabel[dataStatus="ready"][animate="true"] {
+    animation: pulse-ready 2s infinite;
+}
+
+/* Fade-in animation for status changes */
+@keyframes fade-in {
+    0% { opacity: 0; }
+    100% { opacity: 1; }
+}
+
+QPushButton[dataReady="true"][fadeIn="true"] {
+    animation: fade-in 0.5s ease-in;
+}
+
+QLabel[dataStatus="ready"][fadeIn="true"] {
+    animation: fade-in 0.5s ease-in;
+}

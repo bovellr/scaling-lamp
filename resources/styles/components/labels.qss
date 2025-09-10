@@ -1,0 +1,79 @@
+/* ==========================================================================
+ * LABELS.QSS - Add to resources/styles/components/labels.qss
+ * ========================================================================== */
+
+/* Data Status Labels */
+QLabel[dataStatus="ready"] {
+    padding: 8px 12px;
+    border-radius: 4px;
+    background-color: #d4edda;
+    border: 2px solid #28a745;
+    color: #155724;
+    font-weight: bold;
+    font-size: 12px;
+}
+
+QLabel[dataStatus="notReady"] {
+    padding: 8px 12px;
+    border-radius: 4px;
+    background-color: #f8f9fa;
+    border: 1px solid #dee2e6;
+    color: #6c757d;
+    font-weight: normal;
+    font-size: 12px;
+}
+
+QLabel[dataStatus="loading"] {
+    padding: 8px 12px;
+    border-radius: 4px;
+    background-color: #d1ecf1;
+    border: 1px solid #bee5eb;
+    color: #0c5460;
+    font-weight: bold;
+    font-size: 12px;
+}
+
+QLabel[dataStatus="error"] {
+    padding: 8px 12px;
+    border-radius: 4px;
+    background-color: #f8d7da;
+    border: 1px solid #f5c6cb;
+    color: #721c24;
+    font-weight: bold;
+    font-size: 12px;
+}
+
+/* Summary Labels - Bank/ERP Data Display */
+QLabel#bankSummary[dataStatus="ready"] {
+    padding: 8px;
+    background-color: #d4edda;
+    border: 2px solid #28a745;
+    color: #155724;
+    font-weight: bold;
+    border-radius: 4px;
+}
+
+QLabel#bankSummary[dataStatus="notReady"] {
+    padding: 8px;
+    background-color: #f8f9fa;
+    border: 1px solid #dee2e6;
+    color: #6c757d;
+    border-radius: 4px;
+}
+
+QLabel#erpSummary[dataStatus="ready"] {
+    padding: 8px;
+    background-color: #fff3cd;
+    border: 2px solid #fd7e14;
+    color: #856404;
+    font-weight: bold;
+    border-radius: 4px;
+}
+
+QLabel#erpSummary[dataStatus="notReady"] {
+    padding: 8px;
+    background-color: #f8f9fa;
+    border: 1px solid #dee2e6;
+    color: #6c757d;
+    border-radius: 4px;
+}

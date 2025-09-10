@@ -39,6 +39,12 @@ class StreamlinedActionButtonsWidget(QGroupBox):
         # Set initial states
         self.btn_auto_reconcile.setEnabled(False)  # Enabled when data is ready
         
+        self.btn_auto_reconcile.setObjectName("autoReconcileButton")
+        self.status_label.setObjectName("reconcileStatusLabel")
+    
+        self.btn_auto_reconcile.setProperty("dataReady", "false")
+        self.status_label.setProperty("dataStatus", "notReady")
+
         # Style the reconcile button as primary action
         self.btn_auto_reconcile.setStyleSheet("""
             QPushButton {
@@ -81,13 +87,25 @@ class StreamlinedActionButtonsWidget(QGroupBox):
     def set_data_ready(self, ready: bool):
         """Enable/disable reconcile button based on data readiness"""
         self.btn_auto_reconcile.setEnabled(ready)
+        self.btn_auto_reconcile.setProperty("dataReady", "true" if ready else "false")
+
         if ready:
             self.status_label.setText("✓ Ready for reconciliation")
-            self.status_label.setStyleSheet("color: green; font-weight: bold;")
+            self.status_label.setProperty("dataStatus", "ready")
         else:
             self.status_label.setText("⚠ Waiting for both bank and ERP data")
-            self.status_label.setStyleSheet("color: orange;")
+            self.status_label.setProperty("dataStatus", "notReady")
+
+        # Refresh styles to apply changes
+        self._refresh_styles()
     
+    def _refresh_styles(self):
+        """Refresh widget styles after property changes."""
+        widgets = [self.btn_auto_reconcile, self.status_label]
+        for widget in widgets:
+            widget.style().unpolish(widget)
+            widget.style().polish(widget)
+
     def set_operation_in_progress(self, operation: str, in_progress: bool):
         """Show progress for long-running operations"""
         if in_progress:

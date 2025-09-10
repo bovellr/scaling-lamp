@@ -1,0 +1,37 @@
+/* ==========================================================================
+ * GROUPS.QSS - Add to resources/styles/components/groups.qss
+ * ========================================================================== */
+
+/* Group Boxes with Data Status */
+QGroupBox[dataStatus="ready"] {
+    font-weight: bold;
+    color: #155724;
+    border: 2px solid #28a745;
+    border-radius: 8px;
+    margin-top: 1ex;
+    padding: 10px;
+}
+
+QGroupBox[dataStatus="ready"]::title {
+    subcontrol-origin: margin;
+    subcontrol-position: top left;
+    padding: 0 5px;
+    background-color: #d4edda;
+    color: #155724;
+}
+
+QGroupBox[dataStatus="notReady"] {
+    color: #6c757d;
+    border: 1px solid #dee2e6;
+    border-radius: 8px;
+    margin-top: 1ex;
+    padding: 10px;
+}
+
+QGroupBox[dataStatus="notReady"]::title {
+    subcontrol-origin: margin;
+    subcontrol-position: top left;
+    padding: 0 5px;
+    background-color: #f8f9fa;
+    color: #6c757d;
+}
