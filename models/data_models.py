@@ -76,6 +76,7 @@ class BankTemplate:
     """Template defining bank-specific parsing rules."""
     name: str
     bank_type: str
+    skip_rows: int = 0
     header_keywords: List[str]
     date_patterns: List[str]
     skip_keywords: List[str]
@@ -103,11 +104,16 @@ class BankTemplate:
     def map_columns(self, headers: List[str]) -> Dict[str, int]:
         """Map semantic column names to actual header positions."""
         column_map = {}
-        headers_lower = [h.lower() for h in headers]
+
+        # Normalize headers by removing spaces and converting to lowercase
+        headers_normalized = [h.lower().replace(' ', '').strip() for h in headers]
         
         for semantic_name, possible_names in self.column_mapping.items():
-            for i, header in enumerate(headers_lower):
-                if any(name.lower() in header for name in possible_names):
+            # Normalize possible names
+            normalized_names = [name.lower().replace(' ', '').strip() for name in possible_names]
+
+            for i, header_norm in enumerate(headers_normalized):
+                if any(name in header_norm for name in normalized_names):
                     column_map[semantic_name] = i
                     break
         

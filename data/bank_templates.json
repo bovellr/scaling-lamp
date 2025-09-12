@@ -3,6 +3,7 @@
     {
       "name": "Lloyds Bank",
       "bank_type": "lloyds",
+      "skip_rows": 6,
       "header_keywords": [
         "posting date",
         "type",
@@ -11,11 +12,8 @@
         "credits"
       ],
       "date_patterns": [
-        "\\d{1",
-        "2}[-/]\\w{3}[-/]\\d{4}",
-        "\\d{1",
-        "2}[-/]\\d{1",
-        "2}[-/]\\d{4}"
+        "\\d{1,2}[-/]\\w{3}[-/]\\d{4}",
+        "\\d{1,2}[-/]\\d{1,2}[-/]\\d{4}" 
       ],
       "skip_keywords": [
         "totals",
@@ -49,6 +47,7 @@
     {
       "name": "NatWest/RBS Bank",
       "bank_type": "rbs/natwest",
+      "skip_rows": 0,
       "header_keywords": [
         "date",
         "narrative #1",

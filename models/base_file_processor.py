@@ -59,24 +59,46 @@ class BaseFileProcessor:
             raise
 
     def find_header_row(
-        self, df: pd.DataFrame, keywords: Optional[List[str]] = None
-    ) -> Optional[int]:
-        """Find header row either by keywords or by heuristics."""
+        self, df: pd.DataFrame, keywords: Optional[List[str]] = None,
+            skip_rows: Optional[int] = 0) -> Optional[int]:
+        """
+        Find header row either by keywords or by heuristics.
+        
+        Args:
+            df: DataFrame to search
+            keywords: List of header keywords to match
+            skip_rows: Number of rows to skip from the beginning (for metadata)
+    
+        Returns:
+            Index of header row or None if not found
+        """
         if keywords:
-            for idx in range(min(10, len(df))):
+            # Normalize keywords by removing spaces and converting to lowercase
+            normalized_keywords = [kw.lower().replace(' ', '') for kw in keywords]
+
+            for idx in range(skip_rows, min(10, len(df))):
                 row_values = [
-                    str(val).lower().strip() if pd.notna(val) else ""
+                    str(val).lower().replace(' ', '').strip() if pd.notna(val) else ""
                     for val in df.iloc[idx]
                 ]
+
+                # Skip empty rows
+                if not any(val for val in row_values):
+                    continue
+
                 matches = sum(
-                    1 for keyword in keywords if any(keyword.lower() in val for val in row_values)
+                    1 for keyword in normalized_keywords if any(keyword in val for val in row_values)
                 )
-                if matches >= 2:
+                # Match at least 60% of keywords with a minimum of 2 matches
+                if matches >= max(2, int(len(normalized_keywords) * 0.6)):
                     return idx
             return None
-
+        
+        # Fallback to text-based heuristics when no keywords provided
+        # Also respect skip_rows parameter
         best_row: Optional[int] = None
         max_text = 0
+        
         for idx, row in df.iterrows():
             text_count = 0
             non_null = 0

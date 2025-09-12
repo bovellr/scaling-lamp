@@ -53,8 +53,11 @@ class FileProcessor(BaseFileProcessor):
             return BankStatement("", None, "", []), result_info
         
         try:
+            # Use skip_rows from template
+            skip_rows = getattr(template, 'skip_rows', 0)
+
             # Find header row
-            header_row_idx = self.find_header_row(df, template.header_keywords)
+            header_row_idx = self.find_header_row(df, template.header_keywords, skip_rows)
             if header_row_idx is None:
                 result_info['message'] = f"Could not find header row for {template.name}"
                 return BankStatement("", None, "", []), result_info
