@@ -2,57 +2,48 @@
   "templates": [
     {
       "name": "Lloyds Bank",
-      "bank_type": "lloyds", 
+      "bank_type": "lloyds",
       "header_keywords": [
         "posting date",
-        "date", 
         "type",
         "details",
-        "debits", 
+        "debits",
         "credits"
       ],
       "date_patterns": [
-        "\\d{1,2}[-/]\\w{3}[-/]\\d{4}",
-        "\\d{1,2}[-/]\\d{1,2}[-/]\\d{4}"
+        "\\d{1",
+        "2}[-/]\\w{3}[-/]\\d{4}",
+        "\\d{1",
+        "2}[-/]\\d{1",
+        "2}[-/]\\d{4}"
       ],
       "skip_keywords": [
         "totals",
-        "balance", 
+        "balance",
         "end of report",
         "closing",
         "opening"
       ],
       "column_mapping": {
         "date": [
-          "posting date",
-          "date",
-          "transaction date"
+          "posting date"
         ],
         "type": [
-          "type",
-          "transaction type"
+          "type"
         ],
         "description": [
-          "details", 
-          "description",
-          "reference"
+          "details"
         ],
         "debit": [
-          "debit",
-          "debits", 
-          "payment",
-          "out"
+          "debits"
         ],
         "credit": [
-          "credit",
-          "credits",
-          "receipt", 
-          "deposit"
+          "credits"
         ]
       },
       "description": "Standard Lloyds Bank statement format",
-      "created_by": "system", 
-      "created_date": "2025-09-02T07:24:52.243751",
+      "created_by": "system",
+      "created_date": "2025-09-12T19:45:08.071944",
       "is_active": true
     },
     {
@@ -74,7 +65,7 @@
       ],
       "skip_keywords": [
         "Sort Code",
-        "Account Number", 
+        "Account Number",
         "BIC",
         "Bank Name"
       ],
@@ -108,6 +99,5 @@
       "created_date": "2025-09-02T07:24:52.243751",
       "is_active": true
     }
-    
   ]
 }
