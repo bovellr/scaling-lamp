@@ -76,11 +76,11 @@ class BankTemplate:
     """Template defining bank-specific parsing rules."""
     name: str
     bank_type: str
-    skip_rows: int = 0
     header_keywords: List[str]
     date_patterns: List[str]
     skip_keywords: List[str]
     column_mapping: Dict[str, List[str]]
+    skip_rows: int = 0
     description: str = ""
     created_by: str = "system"
     created_date: str = field(default_factory=lambda: datetime.now().isoformat())

@@ -18,6 +18,7 @@ from PySide6.QtWidgets import (
     QPushButton,
     QHBoxLayout,
     QMessageBox,
+    QSpinBox,
 )
 
 from models.data_models import BankTemplate
@@ -46,6 +47,7 @@ class TemplateEditorDialog(QDialog):
         self.name_edit = QLineEdit()
         self.bank_type_edit = QLineEdit()
         self.description_edit = QTextEdit()
+        self.skip_rows_edit = QSpinBox()
         self.headers_edit = QLineEdit()
         self.date_patterns_edit = QLineEdit()
         self.skip_keywords_edit = QLineEdit()
@@ -54,6 +56,7 @@ class TemplateEditorDialog(QDialog):
         form.addRow("Template Name:", self.name_edit)
         form.addRow("Bank Type:", self.bank_type_edit)
         form.addRow("Description:", self.description_edit)
+        form.addRow("Skip Rows:", self.skip_rows_edit)
         form.addRow("Header Keywords (comma-separated):", self.headers_edit)
         form.addRow("Date Patterns (comma-separated regex):", self.date_patterns_edit)
         form.addRow("Skip Keywords (comma-separated):", self.skip_keywords_edit)
@@ -91,6 +94,7 @@ class TemplateEditorDialog(QDialog):
                 QMessageBox.warning(self, "Validation", "Name and bank type are required.")
                 return
 
+            skip_rows = self.skip_rows_edit.value()
             header_keywords = [s.strip() for s in self.headers_edit.text().split(",") if s.strip()]
             date_patterns = [s.strip() for s in self.date_patterns_edit.text().split(",") if s.strip()]
             skip_keywords = [s.strip() for s in self.skip_keywords_edit.text().split(",") if s.strip()]
@@ -111,6 +115,7 @@ class TemplateEditorDialog(QDialog):
             template = BankTemplate(
                 name=name,
                 bank_type=bank_type,
+                skip_rows=skip_rows,
                 header_keywords=header_keywords,
                 date_patterns=date_patterns,
                 skip_keywords=skip_keywords,
