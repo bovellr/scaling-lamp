@@ -4,7 +4,7 @@ from dataclasses import dataclass
 from datetime import datetime, date
 from typing import List
 import re
-
+from difflib import SequenceMatcher
 
 @dataclass
 class TransactionRecord:
@@ -38,6 +38,45 @@ def _normalize_description(text: str) -> str:
     """
     return re.sub(r"[^a-z]+", " ", text.lower()).strip()
 
+def _calculate_fuzzy_similarity(text1: str, text2: str) -> float:
+    """Calculate fuzzy similarity between two text strings using difflib.
+    
+    Args:
+        text1: First text string
+        text2: Second text string
+        
+    Returns:
+        Similarity score between 0.0 and 1.0
+    """
+    if not text1 or not text2:
+        return 0.0
+    
+    # Normalize both descriptions
+    norm1 = _normalize_description(text1)
+    norm2 = _normalize_description(text2)
+    
+    # If normalized descriptions are identical, return perfect match
+    if norm1 == norm2:
+        return 1.0
+    
+    # Use SequenceMatcher for fuzzy matching
+    matcher = SequenceMatcher(None, norm1, norm2)
+    basic_ratio = matcher.ratio()
+    
+    # Also try token-based matching (order-independent)
+    # Split into words and sort them
+    tokens1 = sorted(norm1.split())
+    tokens2 = sorted(norm2.split())
+    
+    if tokens1 and tokens2:
+        token_matcher = SequenceMatcher(None, " ".join(tokens1), " ".join(tokens2))
+        token_ratio = token_matcher.ratio()
+        
+        # Take the higher of the two scores
+        return max(basic_ratio, token_ratio)
+    
+    return basic_ratio
+
 
 def _extract_description_date(text: str) -> date | None:
     """Extract a date embedded in the description if present."""
@@ -57,8 +96,17 @@ def reconcile_transactions(
     bank_transactions: List[TransactionRecord],
     gl_transactions: List[TransactionRecord],
     score_threshold: float = 0.8,
+    fuzzy_matching: bool = True,
+    min_description_similarity: float = 0.6,
 ) -> List[ReconciledMatch]:
     """Reconcile bank and GL transactions using heuristic matching.
+    
+    Args:
+        bank_transactions: List of bank transactions to match
+        gl_transactions: List of GL transactions to match against
+        score_threshold: Minimum score for a match to be accepted
+        fuzzy_matching: Whether to use fuzzy string matching for descriptions
+        min_description_similarity: Minimum similarity score for fuzzy description matching
 
     When the GL posting date differs from the bank date, a date embedded in the
     GL description (``description_date``) is compared with the bank date. If the
@@ -73,6 +121,7 @@ def reconcile_transactions(
         best_gl: TransactionRecord | None = None
         best_score = 0.0
         bank_date = datetime.fromisoformat(str(bank_tx.date)).date()
+        
         for gl_tx in gl_transactions:
             gl_date = datetime.fromisoformat(str(gl_tx.date)).date()
 
@@ -92,12 +141,20 @@ def reconcile_transactions(
                     elif similarity_ratio > 0.95:  # Within 5%
                         amount_score = 0.5
             
-            desc_score = (
-                1.0
-                if _normalize_description(bank_tx.description)
-                == _normalize_description(gl_tx.description)
-                else 0.0
-            )
+            # ENHANCED: Use fuzzy matching for descriptions
+            if fuzzy_matching:
+                desc_score = _calculate_fuzzy_similarity(bank_tx.description, gl_tx.description)
+                # Apply minimum threshold for fuzzy matching
+                if desc_score < min_description_similarity:
+                    desc_score = 0.0
+            else:
+                # Original exact matching
+                desc_score = (
+                    1.0
+                    if _normalize_description(bank_tx.description)
+                    == _normalize_description(gl_tx.description)
+                    else 0.0
+                )
                         
             date_score = 1.0 if bank_date == gl_date else 0.0
 
@@ -125,3 +182,16 @@ def reconcile_transactions(
             matches.append(ReconciledMatch(bank_tx, best_gl, best_score))
 
     return matches
+
+# Additional utility function for testing different similarity approaches
+def test_description_similarities(desc1: str, desc2: str) -> dict:
+    """Test function to compare different similarity approaches.
+    
+    Returns a dictionary with different similarity scores for analysis.
+    """
+    return {
+        'exact_match': _normalize_description(desc1) == _normalize_description(desc2),
+        'fuzzy_similarity': _calculate_fuzzy_similarity(desc1, desc2),
+        'normalized_desc1': _normalize_description(desc1),
+        'normalized_desc2': _normalize_description(desc2),
+    }
