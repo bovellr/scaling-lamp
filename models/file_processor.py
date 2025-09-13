@@ -115,7 +115,8 @@ class FileProcessor(BaseFileProcessor):
         transaction_indices = []
         headers = self._extract_headers(df, header_row_idx)
         column_map = template.map_columns(headers)
-        date_col_idx = column_map.get('date', 0)
+        date_indices = self._ensure_list(column_map.get('date', []))
+        date_col_idx = date_indices[0] if date_indices else None
         
         # Debug info
         print(f"DEBUG: Headers = {headers}")
@@ -128,7 +129,11 @@ class FileProcessor(BaseFileProcessor):
             if row.isna().all():
                 continue
             
-            date_cell = str(row.iloc[date_col_idx]).strip() if date_col_idx < len(row) else ""
+            date_cell = (
+                str(row.iloc[date_col_idx]).strip()
+                if (date_col_idx is not None and date_col_idx < len(row))
+                else ""
+            )
             if not date_cell:
                 continue
             
