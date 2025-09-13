@@ -19,6 +19,7 @@ from PySide6.QtWidgets import (
     QHBoxLayout,
     QMessageBox,
     QSpinBox,
+    QCheckBox,
 )
 
 from models.data_models import BankTemplate
@@ -46,6 +47,7 @@ class TemplateEditorDialog(QDialog):
 
         self.name_edit = QLineEdit()
         self.bank_type_edit = QLineEdit()
+        self.debit_positive_edit = QCheckBox()
         self.description_edit = QTextEdit()
         self.skip_rows_edit = QSpinBox()
         self.headers_edit = QLineEdit()
@@ -55,6 +57,7 @@ class TemplateEditorDialog(QDialog):
 
         form.addRow("Template Name:", self.name_edit)
         form.addRow("Bank Type:", self.bank_type_edit)
+        form.addRow("Debit Positive:", self.debit_positive_edit)
         form.addRow("Description:", self.description_edit)
         form.addRow("Skip Rows:", self.skip_rows_edit)
         form.addRow("Header Keywords (comma-separated):", self.headers_edit)
@@ -79,6 +82,7 @@ class TemplateEditorDialog(QDialog):
         t = self.template
         self.name_edit.setText(t.name)
         self.bank_type_edit.setText(t.bank_type)
+        self.debit_positive_edit.setChecked(t.debit_positive)
         self.description_edit.setPlainText(t.description)
         self.headers_edit.setText(", ".join(t.header_keywords))
         self.date_patterns_edit.setText(", ".join(t.date_patterns))
@@ -115,6 +119,7 @@ class TemplateEditorDialog(QDialog):
             template = BankTemplate(
                 name=name,
                 bank_type=bank_type,
+                debit_positive=self.debit_positive_edit,
                 skip_rows=skip_rows,
                 header_keywords=header_keywords,
                 date_patterns=date_patterns,

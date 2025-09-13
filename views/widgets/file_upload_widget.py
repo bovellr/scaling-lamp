@@ -495,7 +495,8 @@ Rows transformed: {result_info['rows_transformed']}
     def _use_for_reconciliation(self):
         """Signal that this data should be used for reconciliation."""
         if self.viewmodel.transformed_statement:
-            self.file_transformed.emit(self.viewmodel.transformed_statement)
+            
+           self.file_transformed.emit(self.viewmodel.transformed_statement)
     
     def _export_data(self):
         """Export transformed data to file."""

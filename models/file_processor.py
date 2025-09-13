@@ -34,9 +34,10 @@ class FileProcessor(BaseFileProcessor):
         various data sources.
     """
     
-    def __init__(self, templates_manager, debit_positive: bool = True):
+    def __init__(self, templates_manager, debit_positive: bool = False):
         super().__init__()
         self.templates_manager = templates_manager
+        self.default_debit_positive = debit_positive
      
     def transform_statement(self, df: pd.DataFrame, template: BankTemplate) -> Tuple[BankStatement, Dict[str, Any]]:
         """Transform raw bank statement data using template rules."""
@@ -53,6 +54,9 @@ class FileProcessor(BaseFileProcessor):
             return BankStatement("", None, "", []), result_info
         
         try:
+            # IMPORTANT: Use the template's debit_positive setting, fallback to default if not set
+            self.debit_positive = getattr(template, 'debit_positive', self.default_debit_positive)
+
             # Use skip_rows from template
             skip_rows = getattr(template, 'skip_rows', 0)
 
@@ -111,6 +115,8 @@ class FileProcessor(BaseFileProcessor):
         column_map = template.map_columns(headers)
         date_col_idx = column_map.get('date', 0)
         
+        # Debug info
+               
         for idx in range(header_row_idx + 1, len(df)):
             row = df.iloc[idx]
             
@@ -209,8 +215,8 @@ class FileProcessor(BaseFileProcessor):
         #   debit_positive=True  -> Debits positive, Credits negative
         #   debit_positive=False -> Credits positive, Debits negative
         if self.debit_positive:
-            return debit_amount - credit_amount
-        return credit_amount - debit_amount
+            return credit_amount - debit_amount
+        return debit_amount + credit_amount
     
     def _parse_amount(self, amount_str: str) -> float:
         """Parse amount string with currency/parentheses support."""

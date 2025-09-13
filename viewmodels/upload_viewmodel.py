@@ -598,6 +598,8 @@ class UploadViewModel(BaseViewModel):
             BankTemplate(
                 name="Lloyds Bank",
                 bank_type="lloyds",
+                debit_positive=False,
+                skip_rows=6,
                 header_keywords=["posting date", "date", "type", "details", "debits", "credits"],
                 date_patterns=[
                     r"\d{1,2}[-/]\w{3}[-/]\d{4}",      # 11-Apr-2025
@@ -605,11 +607,11 @@ class UploadViewModel(BaseViewModel):
                 ],
                 skip_keywords=["totals", "balance", "end of report", "closing", "opening"],
                 column_mapping={
-                    "date": ["posting date", "date", "transaction date"],
-                    "type": ["type", "transaction type"],
-                    "description": ["details", "description", "reference"],
-                    "debit": ["debit", "debits", "payment", "out"],
-                    "credit": ["credit", "credits", "receipt", "deposit"]
+                    "date": ["posting date"],
+                    "type": ["type"],
+                    "description": ["details"],
+                    "debit": ["debits"],
+                    "credit": ["credits"]
                 },
                 description="Standard Lloyds Bank statement format"
             ),
@@ -617,18 +619,20 @@ class UploadViewModel(BaseViewModel):
             BankTemplate(
                 name="NatWest/RBS Bank",
                 bank_type="rbs/natwest",
-                header_keywords=["date", "narrative", "type", "value", "balance"],
+                debit_positive=False,
+                skip_rows=0,
+                header_keywords=["date", "narrative #1", "narrative #3","type", "value", "balance"],
                 date_patterns=[
                     r"\d{1,2}\s+\w{3}\s+\d{4}",        # 11 Apr 2025
-                    r"\d{1,2}/\d{1,2}/\d{4}",          # 11/04/2025
-                    r"\d{4}-\d{1,2}-\d{1,2}",          # 2025-04-11
+                    r"\d{1,2}/\d{1,2}/\d{4}"           # 11/04/2025
                 ],
                 skip_keywords=["balance brought forward", "balance carried forward", "total"],
                 column_mapping={
-                    "date": ["date", "transaction date"],
-                    "type": ["type", "transaction type"],
-                    "description": ["narrative 1", "narrative 2", "description"],
-                    "amount": ["value", "amount", "transaction amount"]
+                    "date": ["date"],
+                    "type": ["type"],
+                    "description": ["narrative #1", "narrative #3"],
+                    "debit": ["debit"],
+                    "credit": ["credit"]
                 },
                 description="NatWest and RBS statement format"
             ),

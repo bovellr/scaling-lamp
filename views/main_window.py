@@ -323,7 +323,8 @@ class MainWindow(QMainWindow):
         self.upload_widget = FileUploadWidget(viewmodel=self.upload_viewmodel)
 
         self.upload_widget.bank_data_ready.connect(self.on_bank_statement_ready)
-                
+
+                        
         # Create scroll area for the upload widget
         scroll_area = QScrollArea()
         scroll_area.setWidget(self.upload_widget)

@@ -71,6 +71,11 @@ class BankStatement:
             raise ImportError("pandas is required for to_dataframe")
         return pd.DataFrame([t.to_dict() for t in self.transactions])
 
+    @property
+    def transform(self) -> bool:
+        """Whether statement has been transformed (has transactions)."""
+        return len(self.transactions) > 0
+
 @dataclass
 class BankTemplate:
     """Template defining bank-specific parsing rules."""
@@ -85,6 +90,7 @@ class BankTemplate:
     created_by: str = "system"
     created_date: str = field(default_factory=lambda: datetime.now().isoformat())
     is_active: bool = True
+    debit_positive: bool = True
     
     def matches_date_pattern(self, text: str) -> bool:
         """Check if text matches any of the bank's date patterns."""
