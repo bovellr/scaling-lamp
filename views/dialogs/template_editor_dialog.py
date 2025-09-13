@@ -48,6 +48,11 @@ class TemplateEditorDialog(QDialog):
         self.name_edit = QLineEdit()
         self.bank_type_edit = QLineEdit()
         self.debit_positive_edit = QCheckBox()
+        self.debit_positive_edit.setChecked(True)  # Default to True
+        self.debit_positive_edit.setToolTip(
+            "Check if debit amounts are positive (Lloyds style)\n"
+            "Uncheck if debit amounts are negative (NatWest style)"
+        )
         self.description_edit = QTextEdit()
         self.skip_rows_edit = QSpinBox()
         self.headers_edit = QLineEdit()
@@ -82,7 +87,8 @@ class TemplateEditorDialog(QDialog):
         t = self.template
         self.name_edit.setText(t.name)
         self.bank_type_edit.setText(t.bank_type)
-        self.debit_positive_edit.setChecked(t.debit_positive)
+        self.debit_positive_edit.setChecked(getattr(t, 'debit_positive', True))
+        self.skip_rows_edit.setValue(getattr(t, 'skip_rows', 0))
         self.description_edit.setPlainText(t.description)
         self.headers_edit.setText(", ".join(t.header_keywords))
         self.date_patterns_edit.setText(", ".join(t.date_patterns))
@@ -116,10 +122,12 @@ class TemplateEditorDialog(QDialog):
                     )
                     return
 
+            debit_positive = self.debit_positive_edit.isChecked()
+
             template = BankTemplate(
                 name=name,
                 bank_type=bank_type,
-                debit_positive=self.debit_positive_edit,
+                debit_positive=debit_positive,
                 skip_rows=skip_rows,
                 header_keywords=header_keywords,
                 date_patterns=date_patterns,
