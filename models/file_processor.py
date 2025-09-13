@@ -122,6 +122,7 @@ class FileProcessor(BaseFileProcessor):
         print(f"DEBUG: Headers = {headers}")
         print(f"DEBUG: Column map = {column_map}")
         print(f"DEBUG: Date column index = {date_col_idx}")
+        
 
         for idx in range(header_row_idx + 1, len(df)):
             row = df.iloc[idx]
@@ -158,7 +159,19 @@ class FileProcessor(BaseFileProcessor):
             
             try:
                 # Extract data
-                date = str(row.iloc[column_map.get('date', 0)]).strip()
+                date_indices = self._ensure_list(column_map.get('date', []))
+                date = (
+                    str(row.iloc[date_indices[0]]).strip()
+                    if date_indices and date_indices[0] < len(row)
+                    else ""
+                )
+                # Optional reference column
+                reference_indices = self._ensure_list(column_map.get('reference', []))
+                reference = (
+                    str(row.iloc[reference_indices[0]]).strip()
+                    if reference_indices and reference_indices[0] < len(row)
+                    else None
+                )
                 description = self._extract_description(row, column_map, headers)
                 amount = self._extract_amount(row, column_map)
                 description_date, normalized_description = self._extract_description_date(description, date)
@@ -167,7 +180,7 @@ class FileProcessor(BaseFileProcessor):
                     date=date,
                     description=description,
                     amount=amount,
-                    reference=None,  # Could be extracted if available
+                    reference=reference,  # Could be extracted if available
                     description_date=description_date,
                     normalized_description=normalized_description
                 )
@@ -263,19 +276,30 @@ class FileProcessor(BaseFileProcessor):
         debit_amount = 0.0
         credit_amount = 0.0
         
-        if 'amount' in column_map:
-            amount_val = row.iloc[column_map['amount']]
-            if pd.notna(amount_val):
+        if "amount" in column_map:
+            amount_idx = self._ensure_list(column_map["amount"])
+            amount_val = row.iloc[amount_idx[0]] if amount_idx else None
+            if amount_val is not None and pd.notna(amount_val):
                 return self._parse_amount(str(amount_val))
         
-        if 'debit' in column_map:
-            debit_val = row.iloc[column_map['debit']]
-            if pd.notna(debit_val) and str(debit_val).strip():
+        if "debit" in column_map:
+            debit_idx = self._ensure_list(column_map["debit"])
+            debit_val = row.iloc[debit_idx[0]] if debit_idx else None
+            if (
+                debit_val is not None
+                and pd.notna(debit_val)
+                and str(debit_val).strip()
+            ):
                 debit_amount = self._parse_amount(str(debit_val))
         
-        if 'credit' in column_map:
-            credit_val = row.iloc[column_map['credit']]
-            if pd.notna(credit_val) and str(credit_val).strip():
+        if "credit" in column_map:
+            credit_idx = self._ensure_list(column_map["credit"])
+            credit_val = row.iloc[credit_idx[0]] if credit_idx else None
+            if (
+                credit_val is not None
+                and pd.notna(credit_val)
+                and str(credit_val).strip()
+            ):
                 credit_amount = self._parse_amount(str(credit_val))
         
         # ACCOUNTING CONVENTION:
