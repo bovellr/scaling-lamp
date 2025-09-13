@@ -14,7 +14,7 @@
       ],
       "date_patterns": [
         "\\d{1,2}[-/]\\w{3}[-/]\\d{4}",
-        "\\d{1,2}[-/]\\d{1,2}[-/]\\d{4}" 
+        "\\d{1,2}[-/]\\d{1,2}[-/]\\d{4}"
       ],
       "skip_keywords": [
         "totals",
@@ -48,11 +48,10 @@
     {
       "name": "NatWest/RBS Bank",
       "bank_type": "rbs/natwest",
-      "debit_positive": false,
-      "skip_rows": 0,
       "header_keywords": [
         "date",
         "narrative #1",
+        "narrative #3",
         "type",
         "value",
         "debit",
@@ -60,6 +59,7 @@
       ],
       "date_patterns": [
         "\\d{1,2}/\\d{1,2}/\\d{2,4}",
+        "\\d{2,4}/\\d{1,2}/\\d{1,2}",
         "\\d{1,2}-\\d{1,2}-\\d{2,4}"
       ],
       "skip_keywords": [
@@ -70,26 +70,28 @@
       ],
       "column_mapping": {
         "date": [
-          "date",
-          "posting date",
-          "transaction date"
+          "date"
         ],
         "type": [
-          "type",
-          "transaction type"
+          "type"
         ],
         "description": [
-          "narrative #1"
+          "narrative #1",
+          "narrative #3"
         ],
-        "amount": [
-          "debit",
+        "debit": [
+          "debit"
+        ],
+        "credit": [
           "credit"
         ]
       },
+      "skip_rows": 0,
       "description": "NatWest and RBS statement format",
       "created_by": "system",
-      "created_date": "2025-09-02T07:24:52.243751",
-      "is_active": true
+      "created_date": "2025-09-13T09:37:44.634493",
+      "is_active": true,
+      "debit_positive": false
     }
   ]
 }

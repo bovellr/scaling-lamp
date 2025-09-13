@@ -107,21 +107,35 @@ class BankTemplate:
                 continue
         return False
     
-    def map_columns(self, headers: List[str]) -> Dict[str, int]:
+    def _normalize(self, s: str) -> str:
+        """Lowercase and strip all non-alphanumeric characters."""
+        return re.sub(r'[^a-z0-9]', '', s.lower())
+
+    def map_columns(self, headers: List[str]) -> Dict[str, List[int]]:
         """Map semantic column names to actual header positions."""
-        column_map = {}
+        column_map: Dict[str, List[int]] = {}
+        header_to_indices: Dict[str, List[int]] = {}
 
-        # Normalize headers by removing spaces and converting to lowercase
-        headers_normalized = [h.lower().replace(' ', '').strip() for h in headers]
+        # Normalize headers and build a lookup from normalized header -> indices
+        headers_normalized = [ self._normalize(h) for h in headers]
         
-        for semantic_name, possible_names in self.column_mapping.items():
-            # Normalize possible names
-            normalized_names = [name.lower().replace(' ', '').strip() for name in possible_names]
+        for i, h_norm in enumerate(headers_normalized):
+            header_to_indices.setdefault(h_norm, []).append(i)
 
-            for i, header_norm in enumerate(headers_normalized):
-                if any(name in header_norm for name in normalized_names):
-                    column_map[semantic_name] = i
-                    break
+
+        for semantic_name, possible_names in self.column_mapping.items():
+            indices_for_semantic: List[int] = []
+            for name in possible_names:
+                n_name = self._normalize(name)
+                if n_name in header_to_indices:
+                    # extend with all indices that exactly match this normalized name
+                    indices_for_semantic.extend(header_to_indices[n_name])
+
+            # Deduplicate while preserving order
+            if indices_for_semantic:
+                seen = set()
+                deduped = [idx for idx in indices_for_semantic if not (idx in seen or seen.add(idx))]
+                column_map[semantic_name] = deduped
         
         return column_map
 

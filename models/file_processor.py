@@ -9,6 +9,7 @@
 import pandas as pd
 from typing import List, Dict, Any, Tuple, Optional
 import logging
+import math
 import re
 from datetime import datetime
 
@@ -19,6 +20,7 @@ from .data_models import BankTemplate, BankStatement, TransactionData
 logger = logging.getLogger(__name__)
 
 DATE_REGEX = re.compile(r"\b(\d{1,2}[.\/]\d{1,2}(?:[.\/]\d{2,4})?)\b")
+_PLACEHOLDERS = {"", "none", "null", "nan", "n/a", "na"}
 
 
 class FileProcessor(BaseFileProcessor):
@@ -116,7 +118,10 @@ class FileProcessor(BaseFileProcessor):
         date_col_idx = column_map.get('date', 0)
         
         # Debug info
-               
+        print(f"DEBUG: Headers = {headers}")
+        print(f"DEBUG: Column map = {column_map}")
+        print(f"DEBUG: Date column index = {date_col_idx}")
+
         for idx in range(header_row_idx + 1, len(df)):
             row = df.iloc[idx]
             
@@ -170,24 +175,81 @@ class FileProcessor(BaseFileProcessor):
         
         return transactions
     
-    def _extract_description(self, row: pd.Series, column_map: Dict[str, int], headers: List[str]) -> str:
-        """Extract description from transaction row."""
-        description_parts = []
+    def _clean_part(self, val) -> str:
+        """Basic cleaner: strip, drop placeholders."""
+        if pd.isna(val):
+            return ""
+        s = str(val).strip()
+        return "" if s.lower() in {"", "none", "null", "nan", "n/a", "na"} else s
+
+    def _ensure_list(self, v):
+        """Allow backward compatibility where column_map[key] could be an int."""
+        return v if isinstance(v, list) else ([v] if isinstance(v, int) else [])
+
+    def _extract_description(self, row: pd.Series, column_map: Dict[str, List[int]], headers: List[str]) -> str:
+        """
+        Extract description from a transaction row using a many-to-one column_map:
+        - column_map['description'] may contain multiple indices (e.g., narrative #1 & #3)
+        - Priority: type -> description -> details.
+        - Minimal fallback: narrative/descr-like headers.
+        """
+        description_parts: List[str] = []
         
-        for col_type in ['type', 'description', 'details']:
-            if col_type in column_map:
-                idx = column_map[col_type]
-                if idx < len(row) and pd.notna(row.iloc[idx]):
-                    part = str(row.iloc[idx]).strip()
-                    if part:
-                        description_parts.append(part)
-        
+        # 1) Primary sources in priority order
+        priority_keys = ['type', 'description']
+        for key in priority_keys:
+            if key in column_map:
+                indices = self._ensure_list(column_map.get(key, []))
+                for idx in indices:
+                    if 0 <= idx < len(row):
+                        part = self._clean_part(row.iloc[idx])
+                        if part:
+                            description_parts.append(part)
+
+        # Deduplicate description parts while preserving order
+        seen = set()
+        description_parts = [p for p in description_parts if not (p in seen or seen.add(p))]
+
+        # 2) Fallback if still empty: try narrative-like / textual columns
         if not description_parts:
-            for i in range(1, max(1, len(row) - 2)):
-                if pd.notna(row.iloc[i]):
-                    part = str(row.iloc[i]).strip()
-                    if part and part.lower() not in ['', 'none', 'null']:
-                        description_parts.append(part)
+            # Prefer headers that look like narratives / descriptions
+            narrative_like_idxs: List[int] = []
+            for i, h in enumerate(headers):
+                h_low = (h or "").lower()
+                if any(token in h_low for token in ("narrative", "descr", "details", "memo", "reference", "ref")):
+                    narrative_like_idxs.append(i)
+
+            candidates: List[str] = []
+
+            # First pass: narrative-like columns
+            for i in narrative_like_idxs:
+                if 0 <= i < len(row):
+                    part = self._clean_part(row.iloc[i])
+                    if part:
+                        candidates.append(part)
+
+            # If nothing from narrative-like, do a conservative sweep of object/text columns
+            if not candidates:
+                excluded_tokens = {"date", "debit", "credit", "amount", "balance", "currency",
+                                "account", "sort code", "sortcode", "bic", "iban"}
+                for i, h in enumerate(headers):
+                    if 0 <= i < len(row):
+                        # Skip if header clearly numeric/identifier or likely not descriptive
+                        h_low = (h or "").lower()
+                        if any(tok in h_low for tok in excluded_tokens):
+                            continue
+                        val = row.iloc[i]
+                        # Prefer object dtype or strings; avoid pure numbers
+                        if isinstance(val, str) or (pd.api.types.is_object_dtype(type(val))):
+                            part = self._clean_part(val)
+                            # Filter entries that are purely numeric after stripping common punctuation
+                            if part and not part.replace(",", "").replace(".", "").isdigit():
+                                candidates.append(part)
+
+            # Merge fallback candidates, preserving order and uniqueness
+            for c in candidates:
+                if c not in description_parts:
+                    description_parts.append(c)
         
         return " | ".join(description_parts) if description_parts else "Transaction"
     
