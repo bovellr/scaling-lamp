@@ -100,8 +100,8 @@ class MLEngine:
                     candidate_erps.extend(date_dict.get(d_key, []))
 
             for erp_tx in candidate_erps:
-                if bank_tx.amount * erp_tx.amount < 0:
-                    continue
+                #if bank_tx.amount * erp_tx.amount < 0:
+                #    continue
                 erp_date_val = getattr(erp_tx, 'description_date', None) or erp_tx.date
                 erp_dt = _to_datetime(erp_date_val)
                 if abs(abs(bank_tx.amount) - abs(erp_tx.amount)) > amount_tolerance:

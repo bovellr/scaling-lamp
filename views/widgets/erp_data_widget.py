@@ -14,7 +14,7 @@ from PySide6.QtCore import Qt, QDate, QDateTime, Signal
 import pandas as pd
 from datetime import datetime, date
 import logging
-from typing import Dict, Any
+from typing import Dict, Any, Optional
 from pathlib import Path
 
 from viewmodels.erp_database_viewmodel import ERPDatabaseViewModel
