@@ -119,21 +119,35 @@ class ImportWorker(QRunnable):
         if amount_col is None:
             raise ValueError("Amount column not found in ERP data")
 
+        date_col = next((c for c in ['Date', 'date'] if c in df.columns), None)
+        if date_col is None:
+            raise ValueError("Date column not found in ERP data")
+        
+        description_col = next((c for c in ['Description', 'description'] if c in df.columns), None)
+        if description_col is None:
+            raise ValueError("Description column not found in ERP data")
+
         # Convert amount values to numeric, dropping invalid rows
         df[amount_col] = pd.to_numeric(df[amount_col], errors="coerce")
+        df[date_col] = pd.to_datetime(df[date_col], errors="coerce")
+        df[description_col] = df[description_col].astype(str).str.strip()
+        
         original_count = len(df)
-        df = df.dropna(subset=[amount_col])
+        df = df.dropna(subset=[amount_col, date_col])
+        df = df[df[description_col] != '']
+        df = df[df[amount_col] != 0]
+        
         discarded = original_count - len(df)
         if discarded:
             logger.warning(
-                f"Discarded {discarded} ERP rows due to invalid Amount values"
+                f"Discarded {discarded} ERP rows due to invalid Amount and\or Date values"
             )
         # Convert DataFrame to TransactionData objects
         # This assumes your ERP data has certain columns - adjust as needed
         transactions = [
             TransactionData(
-                date=pd.to_datetime(row.get('Date', row.get('date', ''))),
-                description=str(row.get('Description', row.get('description', ''))),
+                date=pd.to_datetime(row[date_col]),
+                description=str(row[description_col]),
                 amount=float(row[amount_col]),
                 reference=str(row.get('Reference', row.get('Ref', row.get('reference', ''))))
             )
