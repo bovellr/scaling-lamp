@@ -28,10 +28,11 @@ class TrainingWorkerThread(QThread):
     training_completed = Signal(object)  # TrainingResult
     training_failed = Signal(str)  # Error message
     
-    def __init__(self, orchestrator: TrainingOrchestrator, 
-                 dataset_name: str, config: ModelTrainingConfig, 
-                 tune_hyperparameters: bool = False):
-        super().__init__()
+    def __init__(self, orchestrator: TrainingOrchestrator,
+                 dataset_name: str, config: ModelTrainingConfig,
+                 tune_hyperparameters: bool = False,
+                 parent: Optional[QObject] = None):
+        super().__init__(parent)
         self.orchestrator = orchestrator
         self.dataset_name = dataset_name
         self.config = config
@@ -185,13 +186,17 @@ class TrainingViewModel(BaseViewModel):
             
             # Create and start worker thread
             self._current_training_thread = TrainingWorkerThread(
-                self.orchestrator, dataset_name, self._training_config, tune_hyperparameters
+                self.orchestrator, dataset_name, self._training_config,
+                tune_hyperparameters, parent=self
             )
             
             # Connect signals
             self._current_training_thread.training_progress.connect(self._on_training_progress)
             self._current_training_thread.training_completed.connect(self._on_training_completed)
             self._current_training_thread.training_failed.connect(self._on_training_failed)
+            self._current_training_thread.finished.connect(
+                self._current_training_thread.deleteLater
+            )
             
             # Update state
             self._is_training = True
@@ -230,6 +235,8 @@ class TrainingViewModel(BaseViewModel):
         self.training_completed.emit(result)
         
         logger.info(f"Training completed: {result.test_accuracy:.3f} accuracy")
+
+        self._current_training_thread = None
     
     def _on_training_failed(self, error_message: str):
         """Handle training failure."""
@@ -240,14 +247,18 @@ class TrainingViewModel(BaseViewModel):
         self.training_failed.emit(error_message)
         
         logger.error(f"Training failed: {error_message}")
+
+        self._current_training_thread = None
     
     def stop_training(self):
         """Stop current training operation."""
         if self._current_training_thread and self._current_training_thread.isRunning():
-            self._current_training_thread.terminate()
+            self._current_training_thread.requestInterruption()
+            self._current_training_thread.quit()
             self._current_training_thread.wait()
             
             self._is_training = False
             self._training_progress = 0
             
             logger.info("Training stopped by user")
+            self._current_training_thread = None

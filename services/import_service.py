@@ -10,8 +10,8 @@
 Centralized import service to eliminate duplicate file handling logic
 """
 from PySide6.QtWidgets import QFileDialog, QMessageBox, QWidget
-from PySide6.QtCore import QObject, Signal, QThread, QRunnable, QThreadPool
-from typing import Optional, Tuple, List, Dict, Any, Callable
+from PySide6.QtCore import QObject, Signal, QRunnable, QThreadPool
+from typing import Optional, List, Dict, Any, Callable
 import pandas as pd
 from pathlib import Path
 import logging
@@ -34,6 +34,8 @@ class ImportWorker(QRunnable):
         callback_success: Callable[[Any], None],
         callback_error: Callable[[str], None],
         template_type: str = None,
+        upload_vm: Optional[UploadViewModel] = None,
+        erp_vm: Optional[ERPDatabaseViewModel] = None,
     ):
         super().__init__()
         self.file_path = file_path
@@ -41,7 +43,9 @@ class ImportWorker(QRunnable):
         self.callback_success = callback_success
         self.callback_error = callback_error
         self.template_type = template_type
-    
+        self.upload_vm = upload_vm or UploadViewModel()
+        self.erp_vm = erp_vm or ERPDatabaseViewModel()
+            
     def run(self):
         try:
             if self.import_type == 'bank':
@@ -57,7 +61,7 @@ class ImportWorker(QRunnable):
     
     def _import_bank_file(self) -> BankStatement:
         """Import bank file using existing UploadViewModel"""
-        upload_vm = UploadViewModel()
+        upload_vm = self.upload_vm
         
         # Get available templates
         templates = upload_vm.available_templates
@@ -71,13 +75,13 @@ class ImportWorker(QRunnable):
                 # Try common mappings for your existing templates
                 template_mappings = {
                     'standard_uk_bank': 'lloyds',
-                    'Natwest_bank': 'rbs/natwest', 
-                    'Charity_bank': 'lloyds',
+                    'natwest_bank': 'rbs/natwest', 
+                    'charity_bank': 'lloyds',
                     'lloyds': 'lloyds',
                     'rbs': 'rbs/natwest',
                     'natwest': 'rbs/natwest'
                 }
-                mapped_type = template_mappings.get(self.template_type.lower(), self.template_type)
+                mapped_type = template_mappings.get(self.template_type.lower(), self.template_type.lower())
                 template = upload_vm.get_template_by_type(mapped_type)
         else:
             # Use first available template as fallback
@@ -100,9 +104,7 @@ class ImportWorker(QRunnable):
     
     def _import_erp_file(self) -> List[TransactionData]:
         """Import ERP file - this would integrate with your ERP data processing"""
-        # For now, we'll implement basic CSV/Excel reading
-        # You can enhance this to use your existing ERP processing logic
-        
+       
         file_path = Path(self.file_path)
         
         if file_path.suffix.lower() == '.csv':
@@ -142,10 +144,25 @@ class ImportService(QObject):
         # Keep reference to ViewModels for template access
         self.upload_vm = UploadViewModel()
         self.erp_vm = ERPDatabaseViewModel()
-        
+
+        # Connect to existing ViewModel signals
+        self._connect_viewmodel_signals()
+    
+    def _connect_viewmodel_signals(self):
+        """Connect to existing ViewModel signals"""
+        # Connect bank transformation signals
+        if hasattr(self.upload_vm, 'transformation_completed'):
+            self.upload_vm.transformation_completed.connect(self._on_bank_transformation_completed)
+        if hasattr(self.upload_vm, 'transformation_failed'):
+            self.upload_vm.transformation_failed.connect(self._on_transformation_failed)
+            
+        # Connect ERP signals
+        if hasattr(self.erp_vm, 'data_loaded'):
+            self.erp_vm.data_loaded.connect(self._on_erp_data_loaded)
+    
     def import_bank_statement(self, parent: QWidget, template_type: str = None) -> bool:
-        """Import bank statement file using existing UploadViewModel logic"""
-        file_path, file_filter = QFileDialog.getOpenFileName(
+        """Import bank statement file using a file dialog"""
+        file_path, _ = QFileDialog.getOpenFileName(
             parent,
             "Import Bank Statement",
             "",
@@ -154,21 +171,27 @@ class ImportService(QObject):
         
         if not file_path:
             return False
-            
+
+        return self.import_bank_statement_file(file_path, template_type)
+
+    def import_bank_statement_file(self, file_path: str, template_type: str = None) -> bool:
+        """Import a specific bank statement file"""    
         self.import_started.emit('bank')
         
         worker = ImportWorker(
-            file_path, 'bank',
+            file_path, 
+            'bank',
             self._on_bank_import_success,
             self._on_import_error,
-            template_type
+            template_type,
+            upload_vm=self.upload_vm
         )
         self.thread_pool.start(worker)
         return True
     
     def import_erp_data(self, parent: QWidget) -> bool:
         """Import ERP data file"""
-        file_path, file_filter = QFileDialog.getOpenFileName(
+        file_path, _ = QFileDialog.getOpenFileName(
             parent,
             "Import ERP Data", 
             "",
@@ -177,13 +200,19 @@ class ImportService(QObject):
         
         if not file_path:
             return False
-            
+
+        return self.import_erp_data_file(file_path)
+
+    def import_erp_data_file(self, file_path: str) -> bool:
+        """Import a specific ERP data file"""    
         self.import_started.emit('erp')
         
         worker = ImportWorker(
-            file_path, 'erp',
+            file_path, 
+            'erp',
             self._on_erp_import_success,
-            self._on_import_error
+            self._on_import_error,
+            erp_vm=self.erp_vm
         )
         self.thread_pool.start(worker)
         return True
@@ -250,7 +279,25 @@ class ImportService(QObject):
         self.import_failed.emit(error_message)
         logger.error(f"Import failed: {error_message}")
 
+    # Additional signal handlers when using ViewModels directly
+    def _on_bank_transformation_completed(self, statement, result_info):
+        """Handle bank transformation completion from ViewModel"""
+        self._on_bank_import_success(statement)
+    
+    def _on_transformation_failed(self, error_message: str):
+        """Handle transformation failure from ViewModel"""
+        self.import_failed.emit(error_message)
+    
+    def _on_erp_data_loaded(self, transactions):
+        """Handle ERP data loading from ViewModel"""
+        self._on_erp_import_success(transactions)
+
+
+
+# ============================================================================
 # Alternative: Enhanced ImportService that integrates more directly with your existing system
+# ============================================================================
+
 class EnhancedImportService(QObject):
     """Enhanced import service that uses your existing ViewModels directly"""
     
