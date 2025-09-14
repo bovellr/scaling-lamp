@@ -35,12 +35,9 @@ def test_event_bus():
     event_bus = EventBus()
     
     callback_called = False
-    def test_callback():
+    def test_callback(name, data):
         nonlocal callback_called
         callback_called = True
-    
-    event_bus.subscribe('test_event', test_callback)
-    event_bus.publish('test_event')
     
     assert callback_called
 
@@ -50,14 +47,13 @@ def test_event_bus_callback_error_propagates():
 
     bus = EventBus()
 
-    def bad_callback():
+    def bad_callback(name, data):
         raise ValueError("boom")
 
-    bus.subscribe('bad_event', bad_callback)
+    bus.event_emitted.connect(bad_callback)
 
     with pytest.raises(ValueError):
         bus.publish('bad_event')
-
 
 def test_settings_save_logs_error(caplog):
     """AppSettings.save should log and propagate errors"""

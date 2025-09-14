@@ -41,10 +41,15 @@ from typing import List, Tuple, Optional, Dict
 import logging
 import math
 from pathlib import Path
-from collections import defaultdict
 from datetime import datetime
 import pandas as pd
-from .data_models import Transaction, TransactionMatch, MatchStatus
+from .data_models import (
+    Transaction,
+    TransactionMatch,
+    MatchStatus,
+    BankTransaction,
+    ERPTransaction,
+)
 from .ml.training.data_models import ModelTrainingConfig, TrainingDataset
 from .ml.training.trainer import TrainingService
 from .ml.feature_utils import compute_transaction_features
@@ -63,9 +68,101 @@ class MLEngine:
         # Load existing model if available
         self.load_model()
     
-    def generate_matches(self, bank_transactions: List[Transaction], 
-                        erp_transactions: List[Transaction], 
-                        confidence_threshold: float = 0.5) -> List[TransactionMatch]:
+        # ------------------------------------------------------------------
+    # Helper methods
+    # ------------------------------------------------------------------
+
+    def _to_datetime(self, value) -> datetime:
+        """Convert value to datetime with robust error handling"""
+        if value is None:
+            raise ValueError("Date value is None")
+
+        if isinstance(value, datetime):
+            return value
+
+        try:
+            return datetime.fromisoformat(str(value))
+        except (ValueError, TypeError):
+            try:
+                return pd.to_datetime(value).to_pydatetime()
+            except Exception:
+                raise ValueError(f"Cannot convert {value} to datetime")
+
+    def _validate_transaction(
+        self,
+        tx: Transaction,
+        source: str,
+        amount_tolerance: float,
+        date_tolerance: int,
+    ) -> Optional[Tuple[datetime, int, int]]:
+        """Validate transaction fields and compute bucket values."""
+        try:
+            if source == 'ERP':
+                date_val = getattr(tx, 'description_date', None) or tx.date
+            else:
+                date_val = tx.date
+            if date_val is None or pd.isna(date_val):
+                raise ValueError("no valid date")
+
+            if tx.amount is None or pd.isna(tx.amount) or math.isnan(tx.amount):
+                raise ValueError("invalid amount")
+
+            dt = self._to_datetime(date_val)
+            amount_bucket = int(round(abs(tx.amount) / amount_tolerance))
+            date_bucket = dt.date().toordinal() // date_tolerance
+            return dt, amount_bucket, date_bucket
+        except Exception as e:
+            self.logger.warning(
+                f"Skipping {source} transaction {getattr(tx, 'id', 'unknown')} - {e}"
+            )
+            return None
+
+    def _index_erp_transactions(
+        self,
+        erp_transactions: List[Transaction],
+        amount_tolerance: float,
+        date_tolerance: int,
+    ) -> pd.DataFrame:
+        """Create an index of ERP transactions using pandas for fast lookup."""
+        records = []
+        for tx in erp_transactions:
+            validated = self._validate_transaction(tx, 'ERP', amount_tolerance, date_tolerance)
+            if not validated:
+                continue
+            _, amount_bucket, date_bucket = validated
+            records.append({
+                'amount_bucket': amount_bucket,
+                'date_bucket': date_bucket,
+                'tx': tx,
+            })
+
+        if not records:
+            return pd.DataFrame(columns=['amount_bucket', 'date_bucket', 'tx'])
+
+        return pd.DataFrame.from_records(records)
+
+    def _get_candidate_transactions(
+        self,
+        erp_df: pd.DataFrame,
+        amount_bucket: int,
+        date_bucket: int,
+    ) -> List[Transaction]:
+        """Retrieve candidate ERP transactions for a given bank bucket."""
+        if erp_df.empty:
+            return []
+
+        mask = (
+            erp_df['amount_bucket'].between(amount_bucket - 1, amount_bucket + 1)
+            & erp_df['date_bucket'].between(date_bucket - 1, date_bucket + 1)
+        )
+        return erp_df.loc[mask, 'tx'].tolist()
+
+    def generate_matches(
+        self,
+        bank_transactions: List[BankTransaction],
+        erp_transactions: List[ERPTransaction],
+        confidence_threshold: float = 0.5,
+    ) -> List[TransactionMatch]:
         """Generate potential matches between bank and ERP transactions"""
         matches = []
         
@@ -76,91 +173,23 @@ class MLEngine:
         amount_tolerance = 1.0
         date_tolerance = 7
 
-        def _to_datetime(value):
-            """Convert value to datetime with robust error handling"""
-            if value is None:
-                raise ValueError("Date value is None")
-
-            if isinstance(value, datetime):
-                return value
-                
-            # Handle various date formats
-            try:
-                # Try ISO format first
-                return datetime.fromisoformat(str(value))
-            except (ValueError, TypeError):
-                try:
-                    # Try pandas date parsing for more flexibility
-                    return pd.to_datetime(value).to_pydatetime()
-                except Exception:
-                    raise ValueError(f"Cannot convert {value} to datetime")
-
-        # Index ERP transactions by rounded amount and date buckets
-        erp_index = defaultdict(lambda: defaultdict(list))
-        
-        for erp_tx in erp_transactions:
-            # CRITICAL FIX: Skip transactions with invalid/missing data
-            try:
-                erp_date_val = getattr(erp_tx, 'description_date', None) or erp_tx.date
-
-                # Skip if no valid date
-                if erp_date_val is None:
-                    self.logger.warning(f"Skipping ERP transaction {erp_tx.id} - no valid date")
-                    continue
-                    
-                # Skip if no valid amount
-                if erp_tx.amount is None or pd.isna(erp_tx.amount):
-                    self.logger.warning(f"Skipping ERP transaction {erp_tx.id} - invalid amount")
-                    continue
-
-                if math.isnan(erp_tx.amount):
-                    self.logger.warning(f"Skipping ERP transaction with NaN amount: {erp_tx}")
-                    continue
-
-                erp_dt = _to_datetime(erp_date_val)
-                amount_bucket = int(round(abs(erp_tx.amount) / amount_tolerance))
-                date_bucket = erp_dt.date().toordinal() // date_tolerance
-                erp_index[amount_bucket][date_bucket].append(erp_tx)
-
-            except Exception as e:
-                self.logger.warning(f"Skipping ERP transaction {erp_tx.id} - error getting date: {e}")
-                continue
+        # Build index of ERP transactions
+        erp_df = self._index_erp_transactions(erp_transactions, amount_tolerance, date_tolerance)
 
         for bank_tx in bank_transactions:
-            # CRITICAL FIX: Skip bank transactions with invalid data
-            try:
-                if bank_tx.date is None or pd.isna(bank_tx.date):
-                    self.logger.warning(f"Skipping bank transaction {bank_tx.id} - invalid date")
-                    continue
-                    
-                if bank_tx.amount is None or pd.isna(bank_tx.amount):
-                    self.logger.warning(f"Skipping bank transaction {bank_tx.id} - invalid amount")
-                    continue
-                
-                if math.isnan(bank_tx.amount):
-                    self.logger.warning(f"Skipping bank transaction with NaN amount: {bank_tx}")
-                    continue
-                    
-                bank_dt = _to_datetime(bank_tx.date)
-                bank_amount_bucket = int(round(abs(bank_tx.amount) / amount_tolerance))
-                bank_date_bucket = bank_dt.date().toordinal() // date_tolerance
-                
-            except Exception as e:
-                self.logger.warning(f"Skipping invalid bank transaction {getattr(bank_tx, 'id', 'unknown')}: {e}")
-                continuek_date_bucket = bank_dt.date().toordinal() // date_tolerance
+            validated_bank = self._validate_transaction(bank_tx, 'bank', amount_tolerance, date_tolerance)
+            if not validated_bank:
+                continue
+            bank_dt, bank_amount_bucket, bank_date_bucket = validated_bank
 
-            candidate_erps: List[Transaction] = []
-
-            for a_key in range(bank_amount_bucket - 1, bank_amount_bucket + 2):
-                date_dict = erp_index.get(a_key, {})
-                for d_key in range(bank_date_bucket - 1, bank_date_bucket + 2):
-                    candidate_erps.extend(date_dict.get(d_key, []))
+            candidate_erps = self._get_candidate_transactions(
+                erp_df, bank_amount_bucket, bank_date_bucket
+            )
 
             for erp_tx in candidate_erps:
-                #if bank_tx.amount * erp_tx.amount < 0:
-                #    continue
+                
                 erp_date_val = getattr(erp_tx, 'description_date', None) or erp_tx.date
-                erp_dt = _to_datetime(erp_date_val)
+                erp_dt = self._to_datetime(erp_date_val)
                 if abs(abs(bank_tx.amount) - abs(erp_tx.amount)) > amount_tolerance:
                     continue
                 if abs((bank_dt - erp_dt).days) > date_tolerance:

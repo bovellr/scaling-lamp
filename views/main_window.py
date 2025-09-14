@@ -159,6 +159,10 @@ class MainWindow(QMainWindow):
             self.reconciliation_vm.reconciliation_completed.connect(self._on_reconciliation_completed)
             self.reconciliation_vm.reconciliation_failed.connect(self._on_reconciliation_failed)
      
+        # Event bus signals
+        if self.event_bus:
+            self.event_bus.error_occurred.connect(self._on_bus_error)
+
     @Slot()
     def _on_reconciliation_started(self):
         """Handle UI updates when reconciliation starts"""
@@ -182,7 +186,13 @@ class MainWindow(QMainWindow):
             self.action_buttons_widget.set_operation_in_progress("Auto Reconciliation", False)
         self.status_bar.showMessage("Ready")
         logger.error(f"Reconciliation failed: {error}")
-        
+
+    @Slot(str, str)
+    def _on_bus_error(self, context, message):
+        """Display errors emitted on the event bus"""
+        logger.error(f"{context}: {message}")
+        QMessageBox.critical(self, context, message)
+            
     @Slot(list)
     def _open_review_dialog(self, matches):
         """Open review dialog for low confidence matches"""

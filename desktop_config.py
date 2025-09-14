@@ -1,7 +1,9 @@
 # SPDX-License-Identifier: LicenseRef-Proprietary
 # Copyright (c) 2025 Arvida Software UK. All rights reserved.
 # desktop_config.py - PySide6 Specific Configuration
-from config import *  # Import shared config
+from config import load_config
+
+CONFIG = load_config()
 
 # Desktop UI Settings
 WINDOW_WIDTH = 1400

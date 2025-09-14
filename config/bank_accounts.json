@@ -1,0 +1,38 @@
+{
+  "AP Lloyds Account": {
+    "account_number": "01586871",
+    "currency": "GBP",
+    "erp_account_code": "152300",
+    "erp_account_name": "Lloyds AP Account",
+    "sort_code": "30-96-96",
+    "statement_format": "UK_STANDARD",
+    "transformer": "lloyds_transformer"
+  },
+  "Charity Lloyds Account": {
+    "account_number": "21386899",
+    "currency": "GBP",
+    "erp_account_code": "153100",
+    "erp_account_name": "Charity Main Account",
+    "sort_code": "30-96-96",
+    "statement_format": "UK_STANDARD",
+    "transformer": "lloyds_transformer"
+  },
+  "Main Lloyds Account": {
+    "account_number": "01584534",
+    "currency": "GBP",
+    "erp_account_code": "152000",
+    "erp_account_name": "Lloyds Main Account",
+    "sort_code": "30-96-96",
+    "statement_format": "UK_BUSINESS",
+    "transformer": "lloyds_transformer"
+  },
+  "RBS-Natwest Account": {
+    "account_number": "10010696",
+    "currency": "GBP",
+    "erp_account_code": "150600",
+    "erp_account_name": "Natwest Main Account",
+    "sort_code": "60-70-80",
+    "statement_format": "UK_BUSINESS",
+    "transformer": "natwest_transformer"
+  }
+}

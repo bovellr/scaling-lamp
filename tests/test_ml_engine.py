@@ -14,22 +14,35 @@ from conftest import stub_training_modules
 stub_training_modules()
 
 from models.ml_engine import MLEngine
-from models.data_models import Transaction, TransactionMatch, MatchStatus
+from models.data_models import (
+    BankTransaction,
+    ERPTransaction,
+    TransactionMatch,
+    MatchStatus,
+)
 
 
 @pytest.fixture
-def make_transaction():
-    """Factory for lightweight Transaction objects."""
-    def _make(id: str, amount: float, days: int = 0, desc: str = "Payment") -> Transaction:
+def make_bank_transaction():
+    """Factory for lightweight BankTransaction objects."""
+    def _make(id: str, amount: float, days: int = 0, desc: str = "Payment") -> BankTransaction:
         date = datetime(2023, 1, 1) + timedelta(days=days)
-        return Transaction(id=id, date=date, description=desc, amount=amount)
+        return BankTransaction(id=id, date=date, description=desc, amount=amount)
     return _make
 
 
-def test_generate_matches_filters_duplicates(make_transaction):
+@pytest.fixture
+def make_erp_transaction():
+    """Factory for lightweight ERPTransaction objects."""
+    def _make(id: str, amount: float, days: int = 0, desc: str = "Payment") -> ERPTransaction:
+        date = datetime(2023, 1, 1) + timedelta(days=days)
+        return ERPTransaction(id=id, date=date, description=desc, amount=amount)
+    return _make
+
+def test_generate_matches_filters_duplicates(make_bank_transaction, make_erp_transaction):
     engine = MLEngine(model_path="dummy.pkl")
-    bank = [make_transaction("b1", 100)]
-    erp = [make_transaction("e1", 100), make_transaction("e2", 110)]
+    bank = [make_bank_transaction("b1", 100)]
+    erp = [make_erp_transaction("e1", 100), make_erp_transaction("e2", 110)]
 
     matches = engine.generate_matches(bank, erp, confidence_threshold=0.0)
 
@@ -37,7 +50,7 @@ def test_generate_matches_filters_duplicates(make_transaction):
     assert matches[0].erp_transaction.id == "e1"
 
 
-def _make_match(bank: Transaction, erp: Transaction, status: MatchStatus) -> TransactionMatch:
+def _make_match(bank: BankTransaction, erp: ERPTransaction, status: MatchStatus) -> TransactionMatch:
     return TransactionMatch(
         bank_transaction=bank,
         erp_transaction=erp,
@@ -49,10 +62,14 @@ def _make_match(bank: Transaction, erp: Transaction, status: MatchStatus) -> Tra
     )
 
 
-def test_train_model_requires_minimum_samples(make_transaction):
+def test_train_model_requires_minimum_samples(make_bank_transaction, make_erp_transaction):
     engine = MLEngine(model_path="dummy.pkl")
     matches = [
-        _make_match(make_transaction(f"b{i}", 100 + i), make_transaction(f"e{i}", 100 + i), MatchStatus.MATCHED)
+        _make_match(
+            make_bank_transaction(f"b{i}", 100 + i),
+            make_erp_transaction(f"e{i}", 100 + i),
+            MatchStatus.MATCHED,
+        )
         for i in range(4)
     ]
 
@@ -62,12 +79,12 @@ def test_train_model_requires_minimum_samples(make_transaction):
         mock_save.assert_not_called()
 
 
-def test_train_model_trains_and_saves(make_transaction):
+def test_train_model_trains_and_saves(make_bank_transaction, make_erp_transaction):
     engine = MLEngine(model_path="dummy.pkl")
     matches = [
         _make_match(
-            make_transaction(f"b{i}", 100 + i),
-            make_transaction(f"e{i}", 100 + i),
+            make_bank_transaction(f"b{i}", 100 + i),
+            make_erp_transaction(f"e{i}", 100 + i),
             MatchStatus.MATCHED if i % 2 == 0 else MatchStatus.REJECTED,
         )
         for i in range(5)
@@ -79,7 +96,7 @@ def test_train_model_trains_and_saves(make_transaction):
         mock_save.assert_called_once()
 
 
-def test_save_model_uses_model_path(make_transaction):
+def test_save_model_uses_model_path():
     engine = MLEngine(model_path="some/model.pkl")
     engine.model = MagicMock()
 

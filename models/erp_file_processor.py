@@ -15,7 +15,9 @@ from pathlib import Path
 from typing import Dict, List, Optional, Tuple, Any
 from datetime import datetime
 import logging
-import config
+from config import load_config
+
+CONFIG = load_config()
 
 from .base_file_processor import BaseFileProcessor
 
@@ -347,7 +349,7 @@ class ERPFileProcessor(BaseFileProcessor):
         
         # If we found both credits and debits columns
         if credits_idx is not None and debits_idx is not None:
-            method = 'credits_minus_debits' if config.ERP_POSITIVE_CREDITS else 'debits_minus_credits'
+            method = 'credits_minus_debits' if CONFIG.ERP_POSITIVE_CREDITS else 'debits_minus_credits'
             return {
                 'type': 'combined',
                 'credits_column': credits_idx,
@@ -359,7 +361,7 @@ class ERPFileProcessor(BaseFileProcessor):
         
         # If we found only credits column
         if credits_idx is not None:
-            method = 'direct' if config.ERP_POSITIVE_CREDITS else 'negate'
+            method = 'direct' if CONFIG.ERP_POSITIVE_CREDITS else 'negate'
             return {
                 'type': 'single',
                 'column': credits_idx,
@@ -369,7 +371,7 @@ class ERPFileProcessor(BaseFileProcessor):
         
         # If we found only debits column  
         if debits_idx is not None:
-            method = 'negate' if config.ERP_POSITIVE_CREDITS else 'direct'
+            method = 'negate' if CONFIG.ERP_POSITIVE_CREDITS else 'direct'
             return {
                 'type': 'single',
                 'column': debits_idx,
@@ -461,12 +463,12 @@ class ERPFileProcessor(BaseFileProcessor):
             if desc_config['type'] == 'single':
                 # Single column mapping
                 desc_col = df.iloc[:, desc_config['column']]
-                return desc_col.astype(str).str.strip()
+                return desc_col.apply(self._clean_part)
                 
             elif desc_config['type'] == 'combined':
                 # Multiple column combination
                 primary_col = df.iloc[:, desc_config['primary_column']]
-                primary_desc = primary_col.astype(str).str.strip()
+                primary_desc = primary_col.apply(self._clean_part)
                 
                 # Process secondary columns
                 secondary_parts = []
@@ -475,7 +477,8 @@ class ERPFileProcessor(BaseFileProcessor):
                     sec_values = sec_col.astype(str).str.strip()
                     
                     # Clean secondary values (remove 'nan', empty strings, etc.)
-                    sec_values = sec_values.replace(['nan', 'None', 'NaN', ''], pd.NA)
+                    sec_values = sec_col.apply(self._clean_part)
+                    sec_values = sec_values.replace('', pd.NA)
                     secondary_parts.append(sec_values)
                 
                 # Combine all parts using vectorized operations
@@ -506,9 +509,9 @@ class ERPFileProcessor(BaseFileProcessor):
             logger.error(f"Error processing description mapping: {e}")
             # Return primary column as fallback
             if desc_config.get('primary_column') is not None:
-                return df.iloc[:, desc_config['primary_column']].astype(str).str.strip()
+                return df.iloc[:, desc_config['primary_column']].apply(self._clean_part)
             elif desc_config.get('column') is not None:
-                return df.iloc[:, desc_config['column']].astype(str).str.strip()
+                return df.iloc[:, desc_config['column']].apply(self._clean_part)
             else:
                 return pd.Series([''] * len(df))
     
@@ -517,8 +520,8 @@ class ERPFileProcessor(BaseFileProcessor):
         try:
             if amount_config['type'] == 'single':
                 # Single column mapping
-                amount_col = df.iloc[:, amount_config['column']]
-                amounts = pd.to_numeric(amount_col, errors='coerce')
+                amount_col = df.iloc[:, amount_config['column']].astype(str)
+                amounts = amount_col.apply(self._parse_amount)
                 
                 if amount_config['method'] == 'negate':
                     # Make values negative (for debit columns)
@@ -531,11 +534,11 @@ class ERPFileProcessor(BaseFileProcessor):
                 
             elif amount_config['type'] == 'combined':
                 # Multiple column mapping (Credits/Debits)
-                credits_col = df.iloc[:, amount_config['credits_column']]
-                debits_col = df.iloc[:, amount_config['debits_column']]
-                
-                credits = pd.to_numeric(credits_col, errors='coerce').fillna(0)
-                debits = pd.to_numeric(debits_col, errors='coerce').fillna(0)
+                credits_col = df.iloc[:, amount_config['credits_column']].astype(str)
+                debits_col = df.iloc[:, amount_config['debits_column']].astype(str)
+
+                credits = credits_col.apply(self._parse_amount).fillna(0)
+                debits = debits_col.apply(self._parse_amount).fillna(0)
                 
                 if amount_config['method'] == 'credits_minus_debits':
                     # Legacy behaviour: credits positive, debits negative

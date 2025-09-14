@@ -35,15 +35,15 @@ python main.py
 Use the machine learning engine programmatically:
 
 ```python
-from models.data_models import Transaction
+from models.data_models import BankTransaction, ERPTransaction
 from models.ml_engine import MLEngine
 import logging
 import pandas as pd
 
 logger = logging.getLogger(__name__)
 
-bank = [Transaction(id=1, amount=100.0, date=pd.Timestamp("2024-01-01"), description="Payment")]
-erp = [Transaction(id=2, amount=100.0, date=pd.Timestamp("2024-01-01"), description="Customer payment")]
+bank = [BankTransaction(id="1", amount=100.0, date=pd.Timestamp("2024-01-01"), description="Payment")]
+erp = [ERPTransaction(id="2", amount=100.0, date=pd.Timestamp("2024-01-01"), description="Customer payment")]
 
 engine = MLEngine()
 matches = engine.generate_matches(bank, erp)

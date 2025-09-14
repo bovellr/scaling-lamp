@@ -1,0 +1,95 @@
+{
+  "templates": [
+    {
+      "name": "Lloyds Bank",
+      "bank_type": "lloyds",
+      "debit_positive": true,
+      "skip_rows": 6,
+      "header_keywords": [
+        "posting date",
+        "type",
+        "details",
+        "debits",
+        "credits"
+      ],
+      "date_patterns": [
+        "\\d{1,2}[-/]\\w{3}[-/]\\d{4}",
+        "\\d{1,2}[-/]\\d{1,2}[-/]\\d{4}"
+      ],
+      "skip_keywords": [
+        "totals",
+        "balance",
+        "end of report",
+        "closing",
+        "opening"
+      ],
+      "column_mapping": {
+        "date": [
+          "posting date"
+        ],
+        "type": [
+          "type"
+        ],
+        "description": [
+          "details"
+        ],
+        "debit": [
+          "debits"
+        ],
+        "credit": [
+          "credits"
+        ]
+      },
+      "description": "Standard Lloyds Bank statement format",
+      "created_by": "system",
+      "created_date": "2025-09-02T12:58:57.705050",
+      "is_active": true
+    },
+    {
+      "name": "NatWest/RBS Bank",
+      "bank_type": "rbs/natwest",
+      "debit_positive": false,
+      "skip_rows": 0,
+      "header_keywords": [
+        "date",
+        "narrative #1",
+        "narrative #3",
+        "type",
+        "debit",
+        "credit"
+      ],
+      "date_patterns": [
+        "\\d{1,2}/\\d{1,2}/\\d{2,4}",
+        "\\d{1,2}-\\d{1,2}-\\d{2,4}"
+      ],
+      "skip_keywords": [
+        "Sort Code",
+        "Account Number",
+        "BIC",
+        "Bank Name"
+      ],
+      "column_mapping": {
+        "date": [
+          "date"
+        ],
+        "type": [
+          "type"
+        ],
+        "description": [
+          "narrative #1",
+          "narrative #3"
+        ],
+        "debit": [
+          "debit"
+        ],
+        "credit": [
+          "credit"
+        ]
+      },
+      "description": "NatWest and RBS statement format",
+      "created_by": "system",
+      "created_date": "2025-09-02T12:58:57.705076",
+      "is_active": true
+    }
+  ]
+}

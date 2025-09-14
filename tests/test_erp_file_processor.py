@@ -1,7 +1,9 @@
 import pandas as pd
 
 from models.erp_file_processor import ERPFileProcessor
-import config
+from config import load_config
+
+CONFIG = load_config()
 
 def test_excel_metadata_includes_sheet_and_header_and_returns_df(tmp_path):
     df = pd.DataFrame({
@@ -52,7 +54,7 @@ def test_amount_mapping_debits_positive(monkeypatch):
         "Credits": [100, 0, 20],
         "Debits": [0, 50, 10],
     })
-    monkeypatch.setattr(config, "ERP_POSITIVE_CREDITS", False)
+    monkeypatch.setattr(CONFIG, "ERP_POSITIVE_CREDITS", False)
     processor = ERPFileProcessor()
     mapping = processor._detect_amount_columns([c.lower() for c in df.columns], list(df.columns))
     amounts = processor._process_amount_mapping(df, mapping)
@@ -64,7 +66,7 @@ def test_amount_mapping_credits_positive(monkeypatch):
         "Credits": [100, 0, 20],
         "Debits": [0, 50, 10],
     })
-    monkeypatch.setattr(config, "ERP_POSITIVE_CREDITS", True)
+    monkeypatch.setattr(CONFIG, "ERP_POSITIVE_CREDITS", True)
     processor = ERPFileProcessor()
     mapping = processor._detect_amount_columns([c.lower() for c in df.columns], list(df.columns))
     amounts = processor._process_amount_mapping(df, mapping)

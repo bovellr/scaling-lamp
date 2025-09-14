@@ -1,0 +1,11 @@
+{
+  "Main Current Account": {
+    "account_number": "12345678",
+    "sort_code": "12-34-56",
+    "transformer": "standard_uk_bank",
+    "erp_account_code": "1001",
+    "erp_account_name": "Main Bank Account",
+    "statement_format": "UK_STANDARD",
+    "currency": "GBP"
+  }
+}

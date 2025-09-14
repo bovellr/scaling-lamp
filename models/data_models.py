@@ -146,18 +146,14 @@ class MatchStatus(Enum):
     MANUAL = "manual"
     PENDING = "pending"
 
-@dataclass
+@dataclass(kw_only=True)
 class Transaction:
-    """Normalized transaction record used for ML matching."""
-    id: str
+    """Base transaction with shared fields."""
     date: datetime
-    description: str
     amount: float
+    description: str
     reference: Optional[str] = None
-    transaction_type: Optional[TransactionType] = None
-    description_date: Optional[str] = None
-    normalized_description: Optional[str] = None
-    
+        
     def __post_init__(self):
         """Validate transaction data after initialization"""
         if self.amount == 0:
@@ -166,19 +162,25 @@ class Transaction:
         if not self.description or not self.description.strip():
             raise ValueError("Transaction description cannot be empty")
 
-@dataclass
+@dataclass(kw_only=True)
 class BankTransaction(Transaction):
     """Bank transaction with additional banking-specific fields"""
+    id: str
     balance: Optional[float] = None
     check_number: Optional[str] = None
     category: Optional[str] = None
+    description_date: Optional[str] = None
+    normalized_description: Optional[str] = None
 
-@dataclass
+@dataclass(kw_only=True)
 class ERPTransaction(Transaction):
     """ERP transaction with additional ERP-specific fields"""
+    id: str
     invoice_number: Optional[str] = None
     vendor_id: Optional[str] = None
     cheque_number: Optional[str] = None
+    description_date: Optional[str] = None
+    normalized_description: Optional[str] = None
 
 
 @dataclass

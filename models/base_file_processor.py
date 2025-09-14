@@ -10,7 +10,7 @@ import pandas as pd
 import logging
 
 logger = logging.getLogger(__name__)
-
+_PLACEHOLDERS = {"", "none", "null", "nan", "n/a", "na"}
 
 class BaseFileProcessor:
     """Provides common file reading and header detection helpers."""
@@ -113,3 +113,45 @@ class BaseFileProcessor:
                     max_text = text_count
                     best_row = idx
         return best_row
+
+    # ------------------------------------------------------------------
+    # Shared helper methods
+    # ------------------------------------------------------------------
+
+    def _extract_headers(self, df: pd.DataFrame, header_row_idx: int) -> List[str]:
+        """Extract and clean header row while preserving column positions."""
+        headers = (
+            df.iloc[header_row_idx]
+            .fillna("")
+            .astype(str)
+            .str.strip()
+            .str.lower()
+            .tolist()
+        )
+        return headers
+
+    def _ensure_list(self, v):
+        """Allow backward compatibility where column_map[key] could be an int."""
+        return v if isinstance(v, list) else ([v] if isinstance(v, int) else [])
+
+    def _clean_part(self, val) -> str:
+        """Basic cleaner: strip, drop placeholders."""
+        if pd.isna(val):
+            return ""
+        s = str(val).strip()
+        return "" if s.lower() in _PLACEHOLDERS else s
+
+    def _parse_amount(self, amount_str: str) -> float:
+        """Parse amount string with currency/parentheses support."""
+        if not amount_str:
+            return 0.0
+        cleaned = amount_str.replace("£", "").replace(",", "").strip()
+        is_negative = cleaned.startswith("-") or (
+            cleaned.startswith("(") and cleaned.endswith(")")
+        )
+        cleaned = cleaned.strip("-()")
+        try:
+            amount = float(cleaned)
+            return -amount if is_negative else amount
+        except ValueError:
+            return 0.0

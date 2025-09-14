@@ -23,6 +23,8 @@ from .base_viewmodel import BaseViewModel
 from models.data_models import (
     TransactionData,
     Transaction,
+    BankTransaction,
+    ERPTransaction,
     TransactionMatch,
     MatchStatus,
 )
@@ -71,9 +73,14 @@ class MatchingViewModel(BaseViewModel):
             self.matching_started.emit()
             self.is_loading = True
 
-            bank_tx = [self._to_ml_transaction(i, tx) for i, tx in enumerate(self._bank_transactions)]
-            erp_tx = [self._to_ml_transaction(i, tx) for i, tx in enumerate(self._erp_transactions)]
-
+            bank_tx = [
+                self._to_ml_transaction(i, tx, BankTransaction)
+                for i, tx in enumerate(self._bank_transactions)
+            ]
+            erp_tx = [
+                self._to_ml_transaction(i, tx, ERPTransaction)
+                for i, tx in enumerate(self._erp_transactions)
+            ]
             matches = self._ml_engine.generate_matches(
                 bank_tx, erp_tx, confidence_threshold=confidence_threshold
             )
@@ -111,14 +118,16 @@ class MatchingViewModel(BaseViewModel):
     # ------------------------------------------------------------------
     # Helpers
     # ------------------------------------------------------------------
-    def _to_ml_transaction(self, idx: int, data: TransactionData) -> Transaction:
-        """Convert :class:`TransactionData` to ML :class:`Transaction`."""
+    def _to_ml_transaction(
+        self, idx: int, data: TransactionData, cls: type[Transaction]
+    ) -> Transaction:
+        """Convert :class:`TransactionData` to a specific :class:`Transaction`."""
         if isinstance(data.date, datetime):
             date_val = data.date
         else:
             # pandas handles various date formats gracefully
             date_val = pd.to_datetime(data.date).to_pydatetime()
-        return Transaction(
+        return cls(
             id=getattr(data, "transaction_id", str(idx)),
             date=date_val,
             description=data.description,

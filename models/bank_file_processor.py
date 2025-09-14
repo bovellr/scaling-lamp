@@ -2,10 +2,10 @@
 # Copyright (c) 2025 Arvida Software UK. All rights reserved.
 
 # ============================================================================
-# FILE PROCESSOR
+# BANK FILE PROCESSOR
 # ============================================================================
 
-# models/file_processor.py
+# models/bank_file_processor.py
 import pandas as pd
 from typing import List, Dict, Any, Tuple, Optional
 import logging
@@ -20,10 +20,9 @@ from .data_models import BankTemplate, BankStatement, TransactionData
 logger = logging.getLogger(__name__)
 
 DATE_REGEX = re.compile(r"\b(\d{1,2}[.\/]\d{1,2}(?:[.\/]\d{2,4})?)\b")
-_PLACEHOLDERS = {"", "none", "null", "nan", "n/a", "na"}
 
 
-class FileProcessor(BaseFileProcessor):
+class BankFileProcessor(BaseFileProcessor):
     """Handles file I/O and bank statement parsing.
     Parameters
     ----------
@@ -105,11 +104,6 @@ class FileProcessor(BaseFileProcessor):
             logger.error(f"Transformation error: {e}")
             return BankStatement("", None, "", []), result_info
    
-    def _extract_headers(self, df: pd.DataFrame, header_row_idx: int) -> List[str]:
-        """Extract and clean header row while preserving column positions."""
-        headers = df.iloc[header_row_idx].fillna("").astype(str).str.strip().str.lower().tolist()
-        return headers
-    
     def _find_transaction_rows(self, df: pd.DataFrame, template: BankTemplate, header_row_idx: int) -> List[int]:
         """Find rows containing transaction data."""
         transaction_indices = []
@@ -118,12 +112,7 @@ class FileProcessor(BaseFileProcessor):
         date_indices = self._ensure_list(column_map.get('date', []))
         date_col_idx = date_indices[0] if date_indices else None
         
-        # Debug info
-        #print(f"DEBUG: Headers = {headers}")
-        #print(f"DEBUG: Column map = {column_map}")
-        #print(f"DEBUG: Date column index = {date_col_idx}")
-        
-
+        # Find transaction rows
         for idx in range(header_row_idx + 1, len(df)):
             row = df.iloc[idx]
             
@@ -193,17 +182,6 @@ class FileProcessor(BaseFileProcessor):
         
         return transactions
     
-    def _clean_part(self, val) -> str:
-        """Basic cleaner: strip, drop placeholders."""
-        if pd.isna(val):
-            return ""
-        s = str(val).strip()
-        return "" if s.lower() in {"", "none", "null", "nan", "n/a", "na"} else s
-
-    def _ensure_list(self, v):
-        """Allow backward compatibility where column_map[key] could be an int."""
-        return v if isinstance(v, list) else ([v] if isinstance(v, int) else [])
-
     def _extract_description(self, row: pd.Series, column_map: Dict[str, List[int]], headers: List[str]) -> str:
         """
         Extract description from a transaction row using a many-to-one column_map:
@@ -309,20 +287,6 @@ class FileProcessor(BaseFileProcessor):
             return credit_amount - debit_amount
         return debit_amount + credit_amount
     
-    def _parse_amount(self, amount_str: str) -> float:
-        """Parse amount string with currency/parentheses support."""
-        if not amount_str:
-            return 0.0
-        cleaned = amount_str.replace("£", "").replace(",", "").strip()
-        is_negative = cleaned.startswith("-") or \
-                    (cleaned.startswith("(") and cleaned.endswith(")"))
-        cleaned = cleaned.strip("-()")
-        try:
-            amount = float(cleaned)
-            return -amount if is_negative else amount
-        except ValueError:
-            return 0.0
-
     def _extract_description_date(self, description: str, posting_date: str) -> Tuple[Optional[str], str]:
         """Extract date from description and return normalized date and cleaned description."""
         match = DATE_REGEX.search(description)
