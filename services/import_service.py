@@ -11,7 +11,7 @@ Centralized import service to eliminate duplicate file handling logic
 """
 from PySide6.QtWidgets import QFileDialog, QMessageBox, QWidget
 from PySide6.QtCore import QObject, Signal, QThread, QRunnable, QThreadPool
-from typing import Optional, Tuple, List, Dict, Any
+from typing import Optional, Tuple, List, Dict, Any, Callable
 import pandas as pd
 from pathlib import Path
 import logging
@@ -27,8 +27,14 @@ logger = logging.getLogger(__name__)
 class ImportWorker(QRunnable):
     """Worker thread for file import operations using existing ViewModels"""
     
-    def __init__(self, file_path: str, import_type: str, callback_success, callback_error, 
-                 template_type: str = None):
+    def __init__(
+        self,
+        file_path: str,
+        import_type: str,
+        callback_success: Callable[[Any], None],
+        callback_error: Callable[[str], None],
+        template_type: str = None,
+    ):
         super().__init__()
         self.file_path = file_path
         self.import_type = import_type
@@ -45,9 +51,9 @@ class ImportWorker(QRunnable):
             else:
                 raise ValueError(f"Unknown import type: {self.import_type}")
                 
-            self.callback_success.emit(result)
+            self.callback_success(result)
         except Exception as e:
-            self.callback_error.emit(str(e))
+            self.callback_error(str(e))
     
     def _import_bank_file(self) -> BankStatement:
         """Import bank file using existing UploadViewModel"""
@@ -108,18 +114,15 @@ class ImportWorker(QRunnable):
         
         # Convert DataFrame to TransactionData objects
         # This assumes your ERP data has certain columns - adjust as needed
-        transactions = []
-        
-        for _, row in df.iterrows():
-            # Map your ERP columns to TransactionData
-            # Adjust these column names based on your actual ERP data structure
-            transaction = TransactionData(
+        transactions = [
+            TransactionData(
                 date=pd.to_datetime(row.get('Date', row.get('date', ''))),
                 description=str(row.get('Description', row.get('description', ''))),
                 amount=float(row.get('Amount', row.get('amount', 0))),
                 reference=str(row.get('Reference', row.get('Ref', row.get('reference', ''))))
             )
-            transactions.append(transaction)
+            for row in df.to_dict('records')
+        ]
         
         return transactions
 
@@ -408,18 +411,20 @@ class EnhancedImportService(QObject):
             else:
                 raise ValueError("Could not identify required columns (date, amount) in ERP data")
         
-        for _, row in df.iterrows():
+        def _build_transaction(row: Dict[str, Any]) -> Optional[TransactionData]:
             try:
-                transaction = TransactionData(
+                return TransactionData(
                     date=pd.to_datetime(row[actual_columns['date']]),
                     description=str(row.get(actual_columns.get('description', ''), '')),
                     amount=float(row[actual_columns['amount']]),
                     reference=str(row.get(actual_columns.get('reference', ''), ''))
                 )
-                transactions.append(transaction)
+                
             except (ValueError, TypeError) as e:
                 logger.warning(f"Skipping invalid transaction row: {e}")
-                continue
+                return None
+        
+        transactions = list(filter(None, (_build_transaction(row) for row in df.to_dict('records'))))
         
         return transactions
     

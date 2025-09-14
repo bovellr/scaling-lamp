@@ -119,9 +119,9 @@ class FileProcessor(BaseFileProcessor):
         date_col_idx = date_indices[0] if date_indices else None
         
         # Debug info
-        print(f"DEBUG: Headers = {headers}")
-        print(f"DEBUG: Column map = {column_map}")
-        print(f"DEBUG: Date column index = {date_col_idx}")
+        #print(f"DEBUG: Headers = {headers}")
+        #print(f"DEBUG: Column map = {column_map}")
+        #print(f"DEBUG: Date column index = {date_col_idx}")
         
 
         for idx in range(header_row_idx + 1, len(df)):

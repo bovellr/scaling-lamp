@@ -40,6 +40,8 @@ except Exception:  # pragma: no cover - optional
 from typing import List, Tuple, Optional, Dict
 import logging
 from pathlib import Path
+from collections import defaultdict
+from datetime import datetime
 from .data_models import Transaction, TransactionMatch, MatchStatus
 from .ml.training.data_models import ModelTrainingConfig, TrainingDataset
 from .ml.training.trainer import TrainingService
@@ -65,11 +67,48 @@ class MLEngine:
         """Generate potential matches between bank and ERP transactions"""
         matches = []
         
-        self.logger.info(f"Generating matches for {len(bank_transactions)} bank and {len(erp_transactions)} ERP transactions")
+        self.logger.info(
+            f"Generating matches for {len(bank_transactions)} bank and {len(erp_transactions)} ERP transactions"
+        )
+
+        amount_tolerance = 1.0
+        date_tolerance = 7
+
+        def _to_datetime(value):
+            if isinstance(value, datetime):
+                return value
+            return datetime.fromisoformat(str(value))
+
+        # Index ERP transactions by rounded amount and date buckets
+        erp_index = defaultdict(lambda: defaultdict(list))
+        for erp_tx in erp_transactions:
+            erp_date_val = getattr(erp_tx, 'description_date', None) or erp_tx.date
+            erp_dt = _to_datetime(erp_date_val)
+            amount_bucket = int(round(abs(erp_tx.amount) / amount_tolerance))
+            date_bucket = erp_dt.date().toordinal() // date_tolerance
+            erp_index[amount_bucket][date_bucket].append(erp_tx)
         
         for bank_tx in bank_transactions:
-                        
-            for erp_tx in erp_transactions:
+            bank_dt = _to_datetime(bank_tx.date)
+            bank_amount_bucket = int(round(abs(bank_tx.amount) / amount_tolerance))
+            bank_date_bucket = bank_dt.date().toordinal() // date_tolerance
+
+            candidate_erps: List[Transaction] = []
+            for a_key in range(bank_amount_bucket - 1, bank_amount_bucket + 2):
+                date_dict = erp_index.get(a_key, {})
+                for d_key in range(bank_date_bucket - 1, bank_date_bucket + 2):
+                    candidate_erps.extend(date_dict.get(d_key, []))
+
+            for erp_tx in candidate_erps:
+                if bank_tx.amount * erp_tx.amount < 0:
+                    continue
+                erp_date_val = getattr(erp_tx, 'description_date', None) or erp_tx.date
+                erp_dt = _to_datetime(erp_date_val)
+                if abs(abs(bank_tx.amount) - abs(erp_tx.amount)) > amount_tolerance:
+                    continue
+                if abs((bank_dt - erp_dt).days) > date_tolerance:
+                    continue
+
                 # Calculate match features
                 features = self._extract_features(bank_tx, erp_tx)
                 

@@ -478,23 +478,26 @@ class ERPFileProcessor(BaseFileProcessor):
                     sec_values = sec_values.replace(['nan', 'None', 'NaN', ''], pd.NA)
                     secondary_parts.append(sec_values)
                 
-                # Combine all parts
-                combined_descriptions = []
+                # Combine all parts using vectorized operations
                 separator = desc_config.get('separator', ' | ')
                 
-                for i in range(len(df)):
-                    parts = [primary_desc.iloc[i]]
-                    
-                    # Add non-null secondary parts
-                    for sec_series in secondary_parts:
-                        if pd.notna(sec_series.iloc[i]) and sec_series.iloc[i].strip():
-                            parts.append(sec_series.iloc[i].strip())
-                    
-                    # Join all non-empty parts
-                    combined = separator.join(part for part in parts if part and part.strip())
-                    combined_descriptions.append(combined)
-                
-                return pd.Series(combined_descriptions)
+                series_list = [primary_desc] + secondary_parts
+
+                combined_descriptions = (
+                    pd.concat(series_list, axis=1)
+                    .fillna('')
+                    .apply(
+                        lambda row: separator.join(
+                            part.strip()
+                            for part in row
+                            if isinstance(part, str) and part.strip()
+                        ),
+                        axis=1,
+                    )
+                    .str.replace(r"\s+\|\s*$", '', regex=True)
+                )
+
+                return combined_descriptions
             
             else:
                 raise ValueError(f"Unknown description mapping type: {desc_config['type']}")
@@ -585,13 +588,8 @@ class ERPFileProcessor(BaseFileProcessor):
         # Step 4: Remove rows that look like totals or summaries
         if 'Description' in df.columns:
             # Remove rows with descriptions containing total/summary keywords
-            total_keywords = ['total', 'summary', 'balance brought forward', 
-                            'carried forward', 'opening balance', 'closing balance',
-                            'grand total', 'subtotal']
-            
-            for keyword in total_keywords:
-                mask = ~df['Description'].str.contains(keyword, case=False, na=False)
-                df = df[mask]
+            pattern = r'(total|summary|balance brought forward|carried forward|opening balance|closing balance|grand total|subtotal)'
+            df = df[~df['Description'].str.contains(pattern, case=False, na=False)]
         
         # Step 5: Remove completely blank rows (all fields empty/null)
         df = df.dropna(how='all')

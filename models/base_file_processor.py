@@ -99,10 +99,11 @@ class BaseFileProcessor:
         best_row: Optional[int] = None
         max_text = 0
         
-        for idx, row in df.iterrows():
+        for row in df.itertuples(index=True, name=None):
+            idx = row[0]
             text_count = 0
             non_null = 0
-            for val in row:
+            for val in row[1:]:
                 if pd.notna(val):
                     non_null += 1
                     if isinstance(val, str) and len(val.strip()) > 2:

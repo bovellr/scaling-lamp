@@ -785,19 +785,20 @@ class ERPDataWidget(QWidget):
                 return
             
             # Convert to TransactionData objects
-            transactions = []
-            for _, row in processed_df.iterrows():
+            def _build_transaction(row: Dict[str, Any]) -> Optional[TransactionData]:
                 try:
-                    transaction = TransactionData(
+                    return TransactionData(
                         date=row['Date'].strftime('%Y-%m-%d') if pd.notna(row['Date']) else '',
-                        description=str(row.get('Description', '')),  # Now potentially combined
-                        amount=float(row.get('Amount', 0)),            # Now potentially combined
+                        description=str(row.get('Description', '')),
+                        amount=float(row.get('Amount', 0)),
                         reference=str(row.get('Reference', '')) if row.get('Reference') else None
                     )
-                    transactions.append(transaction)
+                    
                 except Exception as e:
                     logger.warning(f"Skipping invalid transaction row: {e}")
-                    continue
+                    return None
+
+            transactions = list(filter(None, (_build_transaction(row) for row in processed_df.to_dict('records'))))
             
             # Update ViewModel
             self.viewmodel._erp_transactions = transactions

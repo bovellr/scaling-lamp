@@ -638,27 +638,27 @@ class MainWindow(QMainWindow):
       
     def _df_to_transactions(self, df):
         """Convert a DataFrame to a list of TransactionData objects."""
-        transactions = []
+        
         if df is None or df.empty:
-            return transactions
-        for _, row in df.iterrows():
+            return []
+
+        def _build_transaction(row: Dict[str, Any]) -> Optional[TransactionData]:
             date = row.get('date') or row.get('Date')
             description = row.get('description') or row.get('Description')
             amount = row.get('amount') or row.get('Amount')
             if pd.isna(date) or pd.isna(description) or pd.isna(amount):
-                continue
+                return None
             try:
-                transactions.append(
-                    TransactionData(
-                        date=str(date),
-                        description=str(description),
-                        amount=float(amount)
-                    )
+                return TransactionData(
+                    date=str(date),
+                    description=str(description),
+                    amount=float(amount)
                 )
             except Exception:
-                continue
-        return transactions
-    
+                return None
+
+        return list(filter(None, (_build_transaction(row) for row in df.to_dict('records'))))
+        
     # ==========================================================================
     # SLOT IMPLEMENTATIONS
     # ==========================================================================

@@ -222,29 +222,31 @@ class ERPDatabaseService:
         # Use provided mapping or defaults
         mapping = {**default_mapping, **column_mapping}
         
-        for _, row in df.iterrows():
+        def _build_transaction(row: Dict[str, Any]) -> Optional[TransactionData]:
             try:
-                date_str = str(row[mapping['date']]) if mapping['date'] in row else ""
-                description = str(row[mapping['description']]) if mapping['description'] in row else ""
-                amount = float(row[mapping['amount']]) if mapping['amount'] in row else 0.0
+                date_str = str(row.get(mapping['date'], ''))
+                description = str(row.get(mapping['description'], ''))
+                amount = float(row.get(mapping['amount'], 0.0))
                 reference = (
-                    str(row[mapping['reference']])
-                    if mapping['reference'] in row and pd.notna(row[mapping['reference']])
+                    str(row.get(mapping['reference']))
+                    if mapping['reference'] in row and pd.notna(row.get(mapping['reference']))
                     else None
                 )
 
                 normalized_description = normalize_description(description, date_str)
-                transaction = TransactionData(
+                return TransactionData(
                     date=date_str,
                     description=description,
                     amount=amount,
                     reference=reference,
                     normalized_description=normalized_description,
                 )
-                transactions.append(transaction)
+                
             except Exception as e:
                 logger.warning(f"Failed to convert row to transaction: {e}")
-                continue
+                return None
+        
+        transactions = list(filter(None, (_build_transaction(row) for row in df.to_dict('records'))))
         
         return transactions
     

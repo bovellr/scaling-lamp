@@ -497,17 +497,17 @@ class UploadViewModel(BaseViewModel):
     
     def _convert_erp_to_transactions(self) -> List[TransactionData]:
         """Convert ERP DataFrame to TransactionData objects"""
-        transactions = []
-        
-        for idx, row in self._erp_data.iterrows():
-            transaction = TransactionData(
+        records = self._erp_data.to_dict('records')
+        transactions = [
+            TransactionData(
                 id=f"erp_{idx}",
                 date=str(row.get('Date', '')),
                 description=str(row.get('Description', '')),
                 amount=float(row.get('Amount', 0)),
                 source='erp'
             )
-            transactions.append(transaction)
+            for idx, row in enumerate(records)
+        ]
         
         return transactions
     
