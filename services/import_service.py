@@ -114,13 +114,27 @@ class ImportWorker(QRunnable):
         else:
             raise ValueError(f"Unsupported ERP file format: {file_path.suffix}")
         
+        # Determine the amount column to use
+        amount_col = next((c for c in ['Amount', 'amount'] if c in df.columns), None)
+        if amount_col is None:
+            raise ValueError("Amount column not found in ERP data")
+
+        # Convert amount values to numeric, dropping invalid rows
+        df[amount_col] = pd.to_numeric(df[amount_col], errors="coerce")
+        original_count = len(df)
+        df = df.dropna(subset=[amount_col])
+        discarded = original_count - len(df)
+        if discarded:
+            logger.warning(
+                f"Discarded {discarded} ERP rows due to invalid Amount values"
+            )
         # Convert DataFrame to TransactionData objects
         # This assumes your ERP data has certain columns - adjust as needed
         transactions = [
             TransactionData(
                 date=pd.to_datetime(row.get('Date', row.get('date', ''))),
                 description=str(row.get('Description', row.get('description', ''))),
-                amount=float(row.get('Amount', row.get('amount', 0))),
+                amount=float(row[amount_col]),
                 reference=str(row.get('Reference', row.get('Ref', row.get('reference', ''))))
             )
             for row in df.to_dict('records')
@@ -457,13 +471,23 @@ class EnhancedImportService(QObject):
                 actual_columns['reference'] = 'Reference' if 'Reference' in df.columns else None
             else:
                 raise ValueError("Could not identify required columns (date, amount) in ERP data")
+
+        amount_col = actual_columns['amount']
+        df[amount_col] = pd.to_numeric(df[amount_col], errors="coerce")
+        original_count = len(df)
+        df = df.dropna(subset=[amount_col])
+        discarded = original_count - len(df)
+        if discarded:
+            logger.warning(
+                f"Discarded {discarded} ERP rows due to invalid Amount values"
+            )
         
         def _build_transaction(row: Dict[str, Any]) -> Optional[TransactionData]:
             try:
                 return TransactionData(
                     date=pd.to_datetime(row[actual_columns['date']]),
                     description=str(row.get(actual_columns.get('description', ''), '')),
-                    amount=float(row[actual_columns['amount']]),
+                    amount=float(row[amount_col]),
                     reference=str(row.get(actual_columns.get('reference', ''), ''))
                 )
                 
