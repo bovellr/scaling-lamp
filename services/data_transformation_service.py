@@ -78,10 +78,24 @@ class DataTransformationService:
             
             for idx, tx in enumerate(statement.transactions):
                 try:
+                    # Handle potential None or invalid values
+                    date_val = str(tx.date) if tx.date else ""
+                    description_val = str(tx.description) if tx.description else "Transaction"
+                    amount_val = float(tx.amount) if tx.amount is not None else 0.0
+                    
+                    # Skip transactions with invalid data
+                    if not date_val or date_val.lower() in ['nan', 'none', '']:
+                        errors.append(f"Transaction {idx}: Invalid date")
+                        continue
+                    
+                    if not description_val or description_val.lower() in ['nan', 'none', '']:
+                        errors.append(f"Transaction {idx}: Invalid description")
+                        continue
+                    
                     tx_data = TransactionData(
-                        date=str(tx.date),
-                        description=tx.description,
-                        amount=float(tx.amount),
+                        date=date_val,
+                        description=description_val,
+                        amount=amount_val,
                         reference=getattr(tx, 'reference', None),
                         original_row_index=idx,
                         transaction_id=getattr(tx, 'id', f"bank_{idx}"),

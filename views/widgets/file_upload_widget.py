@@ -333,9 +333,15 @@ Rows transformed: {result_info['rows_transformed']}
         self.results_table.setHorizontalHeaderLabels(["Date", "Description", "Amount"])
         
         for row, transaction in enumerate(transactions):
-            self.results_table.setItem(row, 0, QTableWidgetItem(transaction.date))
-            self.results_table.setItem(row, 1, QTableWidgetItem(transaction.description))
-            self.results_table.setItem(row, 2, QTableWidgetItem(f"£{transaction.amount:.2f}"))
+            # Use transformed data for display
+            # The main date, description, and amount are already transformed by the bank file processor
+            display_date = transaction.date  # Already converted to ISO format
+            display_description = transaction.description  # Already normalized
+            display_amount = transaction.amount  # Already converted (debits negative, credits positive)
+            
+            self.results_table.setItem(row, 0, QTableWidgetItem(str(display_date)))
+            self.results_table.setItem(row, 1, QTableWidgetItem(str(display_description)))
+            self.results_table.setItem(row, 2, QTableWidgetItem(f"£{display_amount:.2f}"))
         
         self.results_table.resizeColumnsToContents()
         

@@ -897,6 +897,9 @@ class MainWindow(QMainWindow):
         f"Bank statement ready: {getattr(statement, 'bank_name', 'Statement')}", 
         "success"
     )
+        # Update summary cards with bank data
+        self._update_summary_cards_initial()
+        
         # Switch to ERP tab after statement is ready
         #self.tab_widget.setCurrentIndex(1)
         
@@ -928,6 +931,9 @@ class MainWindow(QMainWindow):
         self.status_bar.showMessage(
             f"ERP data loaded: {len(erp_transactions)} transactions"
         )
+        
+        # Update summary cards with ERP data
+        self._update_summary_cards_initial()
         
         # Update reconcile button state
         self.update_reconcile_button_state()
@@ -1221,6 +1227,9 @@ class MainWindow(QMainWindow):
                 # Update AI results display
                 self._update_ai_results_display(matches)
                 
+                # Update summary cards with reconciliation results
+                self._update_summary_cards(matches, unmatched_bank, unmatched_erp)
+                
                 # Show completion message with enhanced statistics
                 success_msg = (
                     f"Reconciliation completed in {stats.processing_time:.2f} seconds!\n\n"
@@ -1303,6 +1312,86 @@ class MainWindow(QMainWindow):
             self.lbl_accuracy.setText(f"Accuracy: {accuracy:.1f}%")
         if hasattr(self, 'lbl_precision'):
             self.lbl_precision.setText(f"Precision: {precision:.1f}%")
+    
+    def _update_summary_cards(self, matches, unmatched_bank, unmatched_erp):
+        """Update summary cards with reconciliation results"""
+        if not hasattr(self, 'cards') or not self.cards:
+            return
+        
+        # Calculate totals
+        bank_total = 0.0
+        erp_total = 0.0
+        matched_total = 0.0
+        
+        # Get bank total from data service
+        if self.data_service.bank_statement:
+            bank_df = self.data_service.bank_statement.to_dataframe()
+            bank_total = bank_df['amount'].sum()
+        
+        # Get ERP total from data service
+        if self.data_service.erp_transactions:
+            erp_total = sum(t.amount for t in self.data_service.erp_transactions)
+        
+        # Calculate matched total from reconciliation results
+        for match in matches:
+            if match.bank_transaction and match.erp_transaction:
+                # Use the bank transaction amount (which should be the transformed amount)
+                matched_total += match.bank_transaction.amount
+        
+        # Calculate outstanding (unmatched amounts)
+        unmatched_bank_total = sum(t.amount for t in unmatched_bank)
+        unmatched_erp_total = sum(t.amount for t in unmatched_erp)
+        outstanding_total = unmatched_bank_total + unmatched_erp_total
+        
+        # Update cards (assuming order: GL Balance, Bank Balance, Matched Amount, Outstanding)
+        if len(self.cards) >= 4:
+            # GL Balance (ERP total)
+            self.cards[0].update_value(f"{erp_total:.2f}")
+            
+            # Bank Balance (Bank total - should show transformed amounts)
+            self.cards[1].update_value(f"{bank_total:.2f}")
+            
+            # Matched Amount
+            self.cards[2].update_value(f"{matched_total:.2f}")
+            
+            # Outstanding
+            self.cards[3].update_value(f"{outstanding_total:.2f}")
+        
+        logger.info(f"Summary cards updated - Bank: £{bank_total:.2f}, ERP: £{erp_total:.2f}, Matched: £{matched_total:.2f}, Outstanding: £{outstanding_total:.2f}")
+    
+    def _update_summary_cards_initial(self):
+        """Update summary cards with initial data (before reconciliation)"""
+        if not hasattr(self, 'cards') or not self.cards:
+            return
+        
+        # Calculate totals
+        bank_total = 0.0
+        erp_total = 0.0
+        
+        # Get bank total from data service
+        if self.data_service.bank_statement:
+            bank_df = self.data_service.bank_statement.to_dataframe()
+            bank_total = bank_df['amount'].sum()
+        
+        # Get ERP total from data service
+        if self.data_service.erp_transactions:
+            erp_total = sum(t.amount for t in self.data_service.erp_transactions)
+        
+        # Update cards (assuming order: GL Balance, Bank Balance, Matched Amount, Outstanding)
+        if len(self.cards) >= 4:
+            # GL Balance (ERP total)
+            self.cards[0].update_value(f"{erp_total:.2f}")
+            
+            # Bank Balance (Bank total - should show transformed amounts)
+            self.cards[1].update_value(f"{bank_total:.2f}")
+            
+            # Matched Amount (0 until reconciliation)
+            self.cards[2].update_value("0.00")
+            
+            # Outstanding (0 until reconciliation)
+            self.cards[3].update_value("0.00")
+        
+        logger.info(f"Initial summary cards updated - Bank: £{bank_total:.2f}, ERP: £{erp_total:.2f}")
   
     @Slot()
     def train_ai_model(self):

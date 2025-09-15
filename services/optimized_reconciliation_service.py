@@ -27,13 +27,19 @@ logger = logging.getLogger(__name__)
 @dataclass
 class ReconciliationConfig:
     """Configuration for reconciliation process"""
-    confidence_threshold: float = 0.7
+    confidence_threshold: float = 0.5  # Lowered from 0.7 to 0.5 for better matching
     amount_tolerance: float = 0.01
-    date_tolerance_days: int = 7
-    description_similarity_threshold: float = 0.6
+    date_tolerance_days: int = 14  # Increased from 7 to 14 days
+    description_similarity_threshold: float = 0.4  # Lowered from 0.6 to 0.4
     use_fuzzy_matching: bool = True
-    max_candidates_per_transaction: int = 50
+    max_candidates_per_transaction: int = 100  # Increased from 50 to 100
     enable_caching: bool = True
+    # New parameters for improved matching
+    amount_weight: float = 0.5  # Increased weight for amount matching
+    description_weight: float = 0.3  # Decreased weight for description
+    date_weight: float = 0.2  # Decreased weight for date
+    enable_partial_description_matching: bool = True  # New feature
+    min_description_length: int = 3  # Minimum description length to consider
 
 @dataclass
 class ReconciliationStats:
@@ -304,23 +310,23 @@ class OptimizedReconciliationService:
                     if amount_score >= 0.95 and (bank_row['amount'] * candidate['amount']) < 0:
                         logger.info("*** SIGN CONVENTION MISMATCH DETECTED ***")
                 
-                # Skip if any critical score is too low (very relaxed thresholds for debugging)
-                if (amount_score < 0.1 or 
-                    date_score < 0.05 or 
-                    description_score < 0.1):
+                # Skip if any critical score is too low (more relaxed thresholds for better matching)
+                if (amount_score < 0.05 or  # Lowered from 0.1 to 0.05
+                    date_score < 0.02 or    # Lowered from 0.05 to 0.02
+                    description_score < 0.05):  # Lowered from 0.1 to 0.05
                     if bank_idx < 2:  # Log rejection for first few transactions
-                        logger.info(f"Rejected candidate: amount={amount_score:.3f} < 0.1 or date={date_score:.3f} < 0.05 or desc={description_score:.3f} < 0.1")
+                        logger.info(f"Rejected candidate: amount={amount_score:.3f} < 0.05 or date={date_score:.3f} < 0.02 or desc={description_score:.3f} < 0.05")
                     continue
                 
-                # Calculate overall confidence
+                # Calculate overall confidence using configurable weights
                 confidence = (
-                    amount_score * 0.4 + 
-                    date_score * 0.3 + 
-                    description_score * 0.3
+                    amount_score * self.config.amount_weight + 
+                    date_score * self.config.date_weight + 
+                    description_score * self.config.description_weight
                 )
                 
                 # Use a lower threshold for initial matching, but still respect the config threshold
-                min_confidence = min(0.3, self.config.confidence_threshold)
+                min_confidence = min(0.2, self.config.confidence_threshold)  # Lowered from 0.3 to 0.2
                 
                 if confidence > best_score and confidence >= min_confidence:
                     best_score = confidence
@@ -344,7 +350,11 @@ class OptimizedReconciliationService:
         if amount1 == 0 and amount2 == 0:
             return 1.0
         
-        # Check for sign convention mismatch (Lloyds debits positive vs ERP debits negative)
+        # Check for exact matches first (most common case)
+        if amount1 == amount2:
+            return 1.0
+        
+        # Check for sign convention mismatch (should be rare now with proper extraction)
         # If amounts have opposite signs but same absolute value, it's a perfect match
         if amount1 == -amount2:
             return 1.0
@@ -385,7 +395,7 @@ class OptimizedReconciliationService:
             return 0.0
     
     def _calculate_description_score(self, desc1: str, desc2: str) -> float:
-        """Calculate description similarity score"""
+        """Calculate description similarity score with improved fuzzy matching"""
         if not desc1 or not desc2:
             return 0.0
         
@@ -393,20 +403,128 @@ class OptimizedReconciliationService:
         if str(desc1).lower() in ['nan', 'none', ''] or str(desc2).lower() in ['nan', 'none', '']:
             return 0.0
         
-        # Normalize descriptions
-        norm1 = self._normalize_description(desc1)
-        norm2 = self._normalize_description(desc2)
+        # Skip very short descriptions
+        if len(desc1.strip()) < self.config.min_description_length or len(desc2.strip()) < self.config.min_description_length:
+            return 0.0
+        
+        # Normalize descriptions (less aggressive than before)
+        norm1 = self._normalize_description_improved(desc1)
+        norm2 = self._normalize_description_improved(desc2)
         
         if norm1 == norm2:
             return 1.0
         
-        # Use fuzzy matching for better similarity detection
+        # Use improved fuzzy matching
         if self.config.use_fuzzy_matching:
-            return self._fuzzy_similarity(norm1, norm2)
+            # Try multiple fuzzy matching approaches and take the best
+            scores = []
+            
+            # 1. Basic fuzzy similarity
+            basic_score = self._fuzzy_similarity(norm1, norm2)
+            scores.append(basic_score)
+            
+            # 2. Partial matching (like Excel)
+            if self.config.enable_partial_description_matching:
+                partial_score = self._calculate_partial_match_score(norm1, norm2)
+                scores.append(partial_score)
+            
+            # 3. Word-based matching
+            word_score = self._calculate_word_based_score(norm1, norm2)
+            scores.append(word_score)
+            
+            # 4. Substring matching with penalty
+            substring_score = self._calculate_substring_score(norm1, norm2)
+            scores.append(substring_score)
+            
+            return max(scores)
         else:
             # Simple substring matching for basic similarity
             if norm1 in norm2 or norm2 in norm1:
                 return 0.5
+            return 0.0
+    
+    def _normalize_description_improved(self, text: str) -> str:
+        """Improved description normalization that preserves important matching information"""
+        if not text:
+            return ""
+        
+        # Convert to lowercase and strip whitespace
+        text = str(text).lower().strip()
+        
+        # Remove extra whitespace but preserve single spaces
+        text = ' '.join(text.split())
+        
+        # Keep numbers and common separators that might be important for matching
+        # Only remove truly problematic characters
+        import re
+        text = re.sub(r'[^\w\s\-\.]', ' ', text)
+        
+        return text.strip()
+    
+    def _calculate_partial_match_score(self, desc1: str, desc2: str) -> float:
+        """Calculate partial match score similar to Excel's fuzzy matching"""
+        if not desc1 or not desc2:
+            return 0.0
+        
+        # Split into words
+        words1 = set(desc1.split())
+        words2 = set(desc2.split())
+        
+        if not words1 or not words2:
+            return 0.0
+        
+        # Calculate Jaccard similarity (intersection over union)
+        intersection = len(words1.intersection(words2))
+        union = len(words1.union(words2))
+        
+        if union == 0:
+            return 0.0
+        
+        jaccard_score = intersection / union
+        
+        # Boost score if one description is contained in the other
+        if desc1 in desc2 or desc2 in desc1:
+            jaccard_score = max(jaccard_score, 0.8)
+        
+        return jaccard_score
+    
+    def _calculate_word_based_score(self, desc1: str, desc2: str) -> float:
+        """Calculate word-based similarity score"""
+        if not desc1 or not desc2:
+            return 0.0
+        
+        words1 = desc1.split()
+        words2 = desc2.split()
+        
+        if not words1 or not words2:
+            return 0.0
+        
+        # Calculate how many words match
+        matches = 0
+        for word1 in words1:
+            for word2 in words2:
+                if word1 == word2:
+                    matches += 1
+                    break
+        
+        # Return ratio of matches to total words
+        total_words = max(len(words1), len(words2))
+        return matches / total_words if total_words > 0 else 0.0
+    
+    def _calculate_substring_score(self, desc1: str, desc2: str) -> float:
+        """Calculate substring matching score with penalty for length differences"""
+        if not desc1 or not desc2:
+            return 0.0
+        
+        # Check if one is contained in the other
+        if desc1 in desc2:
+            # Apply penalty based on length difference
+            length_ratio = len(desc1) / len(desc2)
+            return 0.7 * length_ratio  # Base score of 0.7, reduced by length difference
+        elif desc2 in desc1:
+            length_ratio = len(desc2) / len(desc1)
+            return 0.7 * length_ratio
+        else:
             return 0.0
     
     def _normalize_description(self, text: str) -> str:

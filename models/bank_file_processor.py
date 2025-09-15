@@ -165,9 +165,26 @@ class BankFileProcessor(BaseFileProcessor):
                 amount = self._extract_amount(row, column_map)
                 description_date, normalized_description = self._extract_description_date(description, date)
 
+                # Convert main date to ISO format
+                try:
+                    if date:
+                        # Try to parse the date and convert to ISO format
+                        parsed_date = pd.to_datetime(date, dayfirst=True, errors="coerce")
+                        if not pd.isna(parsed_date):
+                            iso_date = parsed_date.strftime("%Y-%m-%d")
+                        else:
+                            iso_date = date  # Fallback to original if parsing fails
+                    else:
+                        iso_date = date
+                except Exception:
+                    iso_date = date  # Fallback to original if conversion fails
+                
+                # Normalize description (remove extra spaces, convert to lowercase)
+                normalized_desc = re.sub(r"\s+", " ", description.strip().lower()) if description else description
+                
                 transaction = TransactionData(
-                    date=date,
-                    description=description,
+                    date=iso_date,  # Use ISO format date
+                    description=normalized_desc,  # Use normalized description
                     amount=amount,
                     reference=reference,  # Could be extracted if available
                     description_date=description_date,
@@ -253,13 +270,21 @@ class BankFileProcessor(BaseFileProcessor):
         """Extract amount from transaction row."""
         debit_amount = 0.0
         credit_amount = 0.0
-
-               
+        
         if "amount" in column_map:
             amount_idx = self._ensure_list(column_map["amount"])
             amount_val = row.iloc[amount_idx[0]] if amount_idx else None
             if amount_val is not None and pd.notna(amount_val):
-                return self._parse_amount(str(amount_val))
+                parsed_amount = self._parse_amount(str(amount_val))
+                # For single amount column, we need to determine if it's debit or credit
+                # Lloyds typically shows debits as positive, credits as negative
+                if self.debit_positive:
+                    # Lloyds format: positive = debit, negative = credit
+                    # Convert to ERP format: debits negative, credits positive
+                    return -parsed_amount if parsed_amount > 0 else parsed_amount
+                else:
+                    # Standard format: already correct
+                    return parsed_amount
         
         if "debit" in column_map:
             debit_idx = self._ensure_list(column_map["debit"])
@@ -281,12 +306,32 @@ class BankFileProcessor(BaseFileProcessor):
             ):
                 credit_amount = self._parse_amount(str(credit_val))
         
-        # ACCOUNTING CONVENTION:
-        #   debit_positive=True  -> Debits positive, Credits negative
-        #   debit_positive=False -> Credits positive, Debits negative
+        # ACCOUNTING CONVENTION HANDLING:
+        # For Lloyds: debit_positive=True means debits are shown as positive in statement
+        # For ERP consistency: we want debits to be negative, credits to be positive
+        # So we need to convert Lloyds positive debits to negative values
+        
         if self.debit_positive:
-            return credit_amount - debit_amount
-        return debit_amount + credit_amount
+            # Lloyds format with separate debit/credit columns:
+            # - Debit column: positive values (need to convert to negative)
+            # - Credit column: positive values (keep as positive)
+            # - Only one column will have a value, the other will be 0
+            if debit_amount > 0:
+                result = -debit_amount  # Convert positive debit to negative
+                logger.debug(f"Lloyds debit conversion: {debit_amount} -> {result}")
+                return result
+            elif credit_amount > 0:
+                result = credit_amount  # Keep positive credit as positive
+                logger.debug(f"Lloyds credit: {credit_amount} -> {result}")
+                return result
+            else:
+                # Both are zero or one is negative (shouldn't happen in Lloyds format)
+                result = debit_amount + credit_amount
+                logger.debug(f"Lloyds fallback: debit={debit_amount}, credit={credit_amount} -> {result}")
+                return result
+        else:
+            # Standard format: debits negative, credits positive (already correct)
+            return debit_amount + credit_amount
     
     def _extract_description_date(self, description: str, posting_date: str) -> Tuple[Optional[str], str]:
         """Extract date from description and return normalized date and cleaned description."""

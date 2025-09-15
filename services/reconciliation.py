@@ -95,9 +95,9 @@ def _extract_description_date(text: str) -> date | None:
 def reconcile_transactions(
     bank_transactions: List[TransactionRecord],
     gl_transactions: List[TransactionRecord],
-    score_threshold: float = 0.8,
+    score_threshold: float = 0.5,  # Lowered from 0.8 to 0.5 for better matching
     fuzzy_matching: bool = True,
-    min_description_similarity: float = 0.6,
+    min_description_similarity: float = 0.3,  # Lowered from 0.6 to 0.3 for better matching
 ) -> List[ReconciledMatch]:
     """Reconcile bank and GL transactions using heuristic matching.
     
@@ -164,7 +164,8 @@ def reconcile_transactions(
                 if days_apart <= 7:  # Within a week gets partial credit
                     date_score = max(0.2, 1.0 - (days_apart / 7.0) * 0.8)
 
-            score = amount_score * 0.4 + desc_score * 0.3 + date_score * 0.3
+            # Improved scoring weights - prioritize amount matching like Excel
+            score = amount_score * 0.5 + desc_score * 0.3 + date_score * 0.2
             
             # If posting dates differ, check for a description date
             if date_score < 1.0:

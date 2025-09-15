@@ -48,6 +48,10 @@ class TransactionData:
     amount: float
     reference: Optional[str] = None
     original_row_index: int = 0
+    category: Optional[str] = None
+    description_date: Optional[str] = None
+    normalized_description: Optional[str] = None
+    transaction_id: str = field(default_factory=lambda: uuid.uuid4().hex)
     
     def __post_init__(self):
         """Validate transaction data after initialization"""
@@ -63,7 +67,7 @@ class TransactionData:
         if not self.description or str(self.description).lower() in ['nan', 'none', '']:
             raise ValueError("Invalid description: description cannot be empty or NaN")
         
-        # Check amount
+        # Check amount - allow zero amounts for now (some bank statements may have zero amounts)
         if self.amount is None or str(self.amount).lower() in ['nan', 'none', '']:
             raise ValueError("Invalid amount: amount cannot be NaN or None")
         
@@ -72,13 +76,9 @@ class TransactionData:
         except (ValueError, TypeError):
             raise ValueError("Invalid amount: amount must be a valid number")
         
-        if float(self.amount) == 0:
-            raise ValueError("Invalid amount: amount cannot be zero")
-    
-    category: Optional[str] = None
-    description_date: Optional[str] = None
-    normalized_description: Optional[str] = None
-    transaction_id: str = field(default_factory=lambda: uuid.uuid4().hex)
+        # Allow zero amounts - they might be valid in some contexts
+        # if float(self.amount) == 0:
+        #     raise ValueError("Invalid amount: amount cannot be zero")
     
     def to_dict(self) -> Dict[str, Any]:
         return asdict(self)

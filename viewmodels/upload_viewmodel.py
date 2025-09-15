@@ -598,7 +598,7 @@ class UploadViewModel(BaseViewModel):
             BankTemplate(
                 name="Lloyds Bank",
                 bank_type="lloyds",
-                debit_positive=False,
+                debit_positive=True,
                 skip_rows=6,
                 header_keywords=["posting date", "date", "type", "details", "debits", "credits"],
                 date_patterns=[
