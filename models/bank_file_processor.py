@@ -253,7 +253,8 @@ class BankFileProcessor(BaseFileProcessor):
         """Extract amount from transaction row."""
         debit_amount = 0.0
         credit_amount = 0.0
-        
+
+               
         if "amount" in column_map:
             amount_idx = self._ensure_list(column_map["amount"])
             amount_val = row.iloc[amount_idx[0]] if amount_idx else None

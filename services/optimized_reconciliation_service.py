@@ -283,10 +283,12 @@ class OptimizedReconciliationService:
             try:
                 # Calculate scores
                 amount_score = self._calculate_amount_score(
-                    bank_row['amount'], candidate['amount']
+                    bank_row['amount'], candidate['amount'],
+                    bank_row['description'], candidate['description']
                 )
                 date_score = self._calculate_date_score(
-                    bank_row['date'], candidate['date']
+                    bank_row['date'], candidate['date'], 
+                    bank_row['description'], candidate['description']
                 )
                 description_score = self._calculate_description_score(
                     bank_row['description'], candidate['description']
@@ -297,6 +299,10 @@ class OptimizedReconciliationService:
                     logger.info(f"Bank: {bank_row['amount']:.2f} | {bank_row['date']} | {bank_row['description'][:50]}")
                     logger.info(f"ERP:  {candidate['amount']:.2f} | {candidate['date']} | {candidate['description'][:50]}")
                     logger.info(f"Scores: amount={amount_score:.3f}, date={date_score:.3f}, desc={description_score:.3f}")
+                    
+                    # Log sign convention detection
+                    if amount_score >= 0.95 and (bank_row['amount'] * candidate['amount']) < 0:
+                        logger.info("*** SIGN CONVENTION MISMATCH DETECTED ***")
                 
                 # Skip if any critical score is too low (very relaxed thresholds for debugging)
                 if (amount_score < 0.1 or 
@@ -333,11 +339,25 @@ class OptimizedReconciliationService:
         
         return best_match
     
-    def _calculate_amount_score(self, amount1: float, amount2: float) -> float:
-        """Calculate amount similarity score"""
+    def _calculate_amount_score(self, amount1: float, amount2: float, bank_description: str = "", erp_description: str = "") -> float:
+        """Calculate amount similarity score with sign convention handling"""
         if amount1 == 0 and amount2 == 0:
             return 1.0
         
+        # Check for sign convention mismatch (Lloyds debits positive vs ERP debits negative)
+        # If amounts have opposite signs but same absolute value, it's a perfect match
+        if amount1 == -amount2:
+            return 1.0
+        
+        # Also check if one amount is the negative of the other (handles floating point precision)
+        if abs(amount1 + amount2) < 0.01:  # Within 1 cent tolerance
+            return 1.0
+        
+        # Additional check: if amounts are very close but opposite signs, likely a sign convention issue
+        if abs(abs(amount1) - abs(amount2)) < 0.01 and (amount1 * amount2) < 0:
+            return 0.95  # Very high score for sign convention mismatch
+        
+        # Standard similarity calculation
         diff = abs(amount1 - amount2)
         max_amount = max(abs(amount1), abs(amount2))
         
@@ -347,14 +367,20 @@ class OptimizedReconciliationService:
         similarity = 1.0 - (diff / max_amount)
         return max(0.0, similarity)
     
-    def _calculate_date_score(self, date1: datetime, date2: datetime) -> float:
-        """Calculate date similarity score"""
+    def _calculate_date_score(self, date1: datetime, date2: datetime, bank_description: str = "", erp_description: str = "") -> float:
+        """Calculate date similarity score with special handling for payroll transactions"""
         days_diff = abs((date1 - date2).days)
+        
+        # Add special handling for payroll transactions
+        if "PAYROLL" in erp_description.upper() or "FP" in bank_description:
+            date_tolerance_days = 35  # Allow month-end processing delays
+        else:
+            date_tolerance_days = self.config.date_tolerance_days
         
         if days_diff == 0:
             return 1.0
-        elif days_diff <= self.config.date_tolerance_days:
-            return max(0.0, 1.0 - (days_diff / self.config.date_tolerance_days))
+        elif days_diff <= date_tolerance_days:
+            return max(0.0, 1.0 - (days_diff / date_tolerance_days))
         else:
             return 0.0
     
@@ -384,16 +410,18 @@ class OptimizedReconciliationService:
             return 0.0
     
     def _normalize_description(self, text: str) -> str:
-        """Normalize description for comparison"""
-        import re
-        return re.sub(r'[^a-z0-9]', '', text.lower().strip())
+        """Normalize description for comparison - minimal normalization to preserve identifiers"""
+        if not text:
+            return ""
+        # Only normalize case and strip whitespace, preserve all characters and spaces
+        return text.lower().strip()
     
     def _fuzzy_similarity(self, text1: str, text2: str) -> float:
         """Calculate fuzzy similarity between two texts"""
         if not text1 or not text2:
             return 0.0
         
-        # Simple token-based similarity
+        # Use token-based similarity with word matching
         tokens1 = set(text1.split())
         tokens2 = set(text2.split())
         
@@ -403,7 +431,18 @@ class OptimizedReconciliationService:
         intersection = len(tokens1.intersection(tokens2))
         union = len(tokens1.union(tokens2))
         
-        return intersection / union if union > 0 else 0.0
+        # Also check for partial word matches (useful for reference numbers)
+        partial_matches = 0
+        for token1 in tokens1:
+            for token2 in tokens2:
+                if len(token1) > 3 and len(token2) > 3:  # Only for meaningful tokens
+                    if token1 in token2 or token2 in token1:
+                        partial_matches += 0.5
+        
+        base_score = intersection / union if union > 0 else 0.0
+        partial_bonus = min(0.3, partial_matches / max(len(tokens1), len(tokens2)))
+        
+        return min(1.0, base_score + partial_bonus)
     
     def _generate_match_note(
         self, 
