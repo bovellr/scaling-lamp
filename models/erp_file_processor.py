@@ -567,7 +567,17 @@ class ERPFileProcessor(BaseFileProcessor):
         """Clean ERP data by removing blank rows, totals, and invalid dates."""
         logger.info(f"Cleaning ERP data: {len(df)} initial rows")
         
-        # Step 1: Remove rows where ALL required fields are empty/null
+        # Step 1: Handle NaN values in all columns first
+        for col in df.columns:
+            if df[col].dtype == 'object':  # String columns
+                # Replace various NaN representations with empty string
+                df[col] = df[col].fillna('').astype(str)
+                df[col] = df[col].replace(['nan', 'None', 'NaN', 'null', 'NULL'], '')
+            elif df[col].dtype in ['float64', 'int64']:  # Numeric columns
+                # Replace NaN with 0 for numeric columns
+                df[col] = df[col].fillna(0)
+        
+        # Step 2: Remove rows where ALL required fields are empty/null
         required_cols = ['Date', 'Description', 'Amount']
         available_required = [col for col in required_cols if col in df.columns]
         
@@ -575,29 +585,36 @@ class ERPFileProcessor(BaseFileProcessor):
             # Remove rows where all required columns are null/empty
             df = df.dropna(subset=available_required, how='all')
         
-        # Step 2: Remove rows with invalid/missing dates
+        # Step 3: Remove rows with invalid/missing dates
         if 'Date' in df.columns:
+            # Convert to datetime, coercing errors to NaT
+            df['Date'] = pd.to_datetime(df['Date'], errors='coerce')
             df = df.dropna(subset=['Date'])
             # Remove rows where date couldn't be parsed (NaT values)
             df = df[df['Date'].notna()]
         
-        # Step 3: Remove rows with missing amounts
+        # Step 4: Remove rows with missing amounts
         if 'Amount' in df.columns:
+            # Convert to numeric, coercing errors to NaN
+            df['Amount'] = pd.to_numeric(df['Amount'], errors='coerce')
             df = df.dropna(subset=['Amount'])
             # Remove rows where amount is 0 or couldn't be parsed
             df = df[df['Amount'] != 0]
             df = df[df['Amount'].notna()]
         
-        # Step 4: Remove rows that look like totals or summaries
+        # Step 5: Remove rows that look like totals or summaries
         if 'Description' in df.columns:
             # Remove rows with descriptions containing total/summary keywords
             pattern = r'(total|summary|balance brought forward|carried forward|opening balance|closing balance|grand total|subtotal)'
             df = df[~df['Description'].str.contains(pattern, case=False, na=False)]
         
-        # Step 5: Remove completely blank rows (all fields empty/null)
+        # Log cleaning results
+        logger.info(f"ERP data cleaning completed: {len(df)} final rows after removing NaN and invalid data")
+        
+        # Step 6: Remove completely blank rows (all fields empty/null)
         df = df.dropna(how='all')
         
-        # Step 6: Clean string fields
+        # Step 7: Clean string fields
         string_cols = ['Description', 'Reference']
         for col in string_cols:
             if col in df.columns:

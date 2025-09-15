@@ -14,7 +14,7 @@ from datetime import datetime
 
 from models.data_models import BankTemplate, BankStatement, ERPTransaction, TransactionData
 from models.erp_file_processor import ERPFileProcessor
-from models.file_processor import FileProcessor
+from models.bank_file_processor import BankFileProcessor
 from models.database import TemplateRepository
 from .base_viewmodel import BaseViewModel
 from PySide6.QtCore import Signal
@@ -53,7 +53,7 @@ class UploadViewModel(BaseViewModel):
     def __init__(self, config_service=None):
         super().__init__()
         self.template_repository = TemplateRepository()
-        self.file_processor = FileProcessor(self)
+        self.file_processor = BankFileProcessor(self)
 
         # Store config service if provided
         self.config_service = config_service

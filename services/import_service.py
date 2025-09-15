@@ -21,6 +21,7 @@ from viewmodels.upload_viewmodel import UploadViewModel
 from viewmodels.erp_database_viewmodel import ERPDatabaseViewModel
 from models.data_models import TransactionData, BankStatement
 from services.data_service import DataService
+from services.data_transformation_service import DataTransformationService
 
 logger = logging.getLogger(__name__)
 
@@ -168,6 +169,7 @@ class ImportService(QObject):
         super().__init__()
         self.data_service = data_service
         self.thread_pool = QThreadPool()
+        self.transformation_service = DataTransformationService()
         
         # Keep reference to ViewModels for template access
         self.upload_vm = UploadViewModel()

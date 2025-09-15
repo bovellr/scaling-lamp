@@ -2,14 +2,14 @@ import pandas as pd
 import pytest
 from unittest.mock import MagicMock
 
-from models.file_processor import FileProcessor
+from models.bank_file_processor import BankFileProcessor
 from models.data_models import BankTemplate
 
 
 def make_file_processor():
-    """Helper to create FileProcessor with mocked templates manager."""
+    """Helper to create BankFileProcessor with mocked templates manager."""
     templates_manager = MagicMock()
-    return FileProcessor(templates_manager)
+    return BankFileProcessor(templates_manager)
 
 
 def test_read_file_csv(tmp_path):
@@ -80,7 +80,7 @@ def test_extract_amount_sign_handling():
     assert fp._extract_amount(row_credit, column_map) == -100
 
     # Old behaviour can still be enabled
-    fp_old = FileProcessor(MagicMock(), debit_positive=False)
+    fp_old = BankFileProcessor(MagicMock(), debit_positive=False)
     assert fp_old._extract_amount(row_debit, column_map) == -100
     assert fp_old._extract_amount(row_credit, column_map) == 100
     

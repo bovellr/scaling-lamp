@@ -36,6 +36,7 @@ matplotlib>=3.8.0
 # Additional utilities
 # pathlib2 ⟶ drop (only for very old Pythons)
 plyer>=2.1.0
+psutil>=5.9.0
 streamlit>=1.32.0      # any recent 1.x works on Py 3.12
 
 # Database support (SQLite helpers)

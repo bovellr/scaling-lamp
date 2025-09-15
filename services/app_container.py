@@ -14,8 +14,11 @@ and eliminate circular dependencies.
 from typing import Optional, Dict, Any
 from .config_service import ConfigurationService, FileBasedConfigurationService, InMemoryConfigurationService, DatabaseConfigurationService
 from .account_service import AccountService
+from .data_transformation_service import DataTransformationService
+from .optimized_reconciliation_service import OptimizedReconciliationService
+from .performance_monitor import PerformanceMonitor
 from viewmodels.upload_viewmodel import UploadViewModel
-from models.file_processor import FileProcessor
+from models.bank_file_processor import BankFileProcessor
 
 class ApplicationContainer:
     """Simple dependency injection container"""
@@ -78,6 +81,22 @@ def setup_application_container(config_type: str = "file"):
         'upload_viewmodel', 
         lambda: UploadViewModel(app_container.get_service('config_service'))
     )
+    
+    # Register new optimized services
+    app_container.register_singleton(
+        'data_transformation_service',
+        lambda: DataTransformationService()
+    )
+    
+    app_container.register_singleton(
+        'optimized_reconciliation_service',
+        lambda: OptimizedReconciliationService()
+    )
+    
+    app_container.register_singleton(
+        'performance_monitor',
+        lambda: PerformanceMonitor()
+    )
 
 def get_config_service() -> ConfigurationService:
     """Helper to get configuration service"""
@@ -90,3 +109,15 @@ def get_account_service() -> AccountService:
 def get_upload_viewmodel() -> UploadViewModel:
     """Helper to get upload viewmodel"""
     return app_container.get_service('upload_viewmodel')
+
+def get_data_transformation_service() -> DataTransformationService:
+    """Helper to get data transformation service"""
+    return app_container.get_service('data_transformation_service')
+
+def get_optimized_reconciliation_service() -> OptimizedReconciliationService:
+    """Helper to get optimized reconciliation service"""
+    return app_container.get_service('optimized_reconciliation_service')
+
+def get_performance_monitor() -> PerformanceMonitor:
+    """Helper to get performance monitor"""
+    return app_container.get_service('performance_monitor')

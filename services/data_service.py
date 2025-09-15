@@ -15,6 +15,7 @@ import logging
 from pathlib import Path
 
 from models.data_models import TransactionData, BankStatement, TransactionMatch
+from services.data_transformation_service import DataTransformationService
 
 logger = logging.getLogger(__name__)
 
@@ -33,6 +34,7 @@ class DataService(QObject):
         self._erp_transactions: List[TransactionData] = []
         self._reconciliation_results: List[TransactionMatch] = []
         self._training_data: List[TransactionMatch] = []
+        self.transformation_service = DataTransformationService()
         
     # Properties for external access
     @property

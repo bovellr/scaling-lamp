@@ -1165,73 +1165,86 @@ class MainWindow(QMainWindow):
         QTimer.singleShot(100, self._perform_reconciliation)
     
     def _perform_reconciliation(self):
-        """Perform the actual reconciliation work"""
-
-        try:
-            start_time = time.time()
-            
-            # Get data from service
-            bank_statement = self.data_service.bank_statement
-            erp_transactions = self.data_service.erp_transactions
-            
-            if not bank_statement or not erp_transactions:
-                raise ValueError("Missing bank or ERP data")
-            
-            # Convert bank statement to TransactionData format
-            bank_tx = []
-            for idx, transaction in enumerate(bank_statement.transactions):
-                bank_tx.append(TransactionData(
-                    date=str(transaction.date),
-                    description=transaction.description,
-                    amount=transaction.amount,
-                    original_row_index=idx,
-                    transaction_id=getattr(transaction, 'id', None)
-                ))
-
-            # Run reconciliation
-            matches = self.reconciliation_vm.reconcile(bank_tx, erp_transactions)
-            
-            # Calculate processing time
-            processing_time = time.time() - start_time
-            
-            # Store results
-            self.reconciliation_results = matches
-            self.data_service.set_reconciliation_results(matches)
-            
-            # Calculate unmatched transactions
-            unmatched_bank = self._calculate_unmatched_bank(bank_tx, matches)
-            unmatched_erp = self._calculate_unmatched_erp(erp_transactions, matches)
-            
-            # Display results
-            if hasattr(self, 'transaction_tables'):
-                self.transaction_tables.populate_reconciliation_results(
-                    matches, unmatched_bank, unmatched_erp
+        """Perform the actual reconciliation work using optimized services"""
+        from services.app_container import get_performance_monitor
+        from services.performance_monitor import measure_operation
+        
+        with measure_operation("reconciliation", {"bank_count": len(self.data_service.bank_statement.transactions) if self.data_service.bank_statement else 0, "erp_count": len(self.data_service.erp_transactions)}):
+            try:
+                # Get data from service
+                bank_statement = self.data_service.bank_statement
+                erp_transactions = self.data_service.erp_transactions
+                
+                if not bank_statement or not erp_transactions:
+                    raise ValueError("Missing bank or ERP data")
+                
+                # Use optimized services from dependency injection container
+                from services.app_container import get_data_transformation_service, get_optimized_reconciliation_service
+                from services.optimized_reconciliation_service import ReconciliationConfig
+                
+                transformation_service = get_data_transformation_service()
+                
+                # Convert bank statement to TransactionData format using optimized service
+                bank_result = transformation_service.bank_statement_to_transaction_data(bank_statement)
+                if not bank_result.success:
+                    raise ValueError(f"Failed to convert bank data: {bank_result.errors}")
+                
+                bank_tx = bank_result.data
+                
+                # Use optimized reconciliation service
+                config = ReconciliationConfig(
+                    confidence_threshold=0.7,
+                    amount_tolerance=0.01,
+                    date_tolerance_days=7,
+                    description_similarity_threshold=0.6,
+                    use_fuzzy_matching=True
                 )
-            
-            # Update AI results display
-            self._update_ai_results_display(matches)
-            
-            # Show completion message
-            success_msg = (
-                f"Reconciliation completed in {processing_time:.2f} seconds!\n\n"
-                f"✓ Matched: {len(matches)}\n"
-                f"⚠ Unmatched Bank: {len(unmatched_bank)}\n"
-                f"⚠ Unmatched ERP: {len(unmatched_erp)}\n\n"
-                f"View results in the tables below."
-            )
-            
-            QMessageBox.information(self, "Reconciliation Complete", success_msg)
-            
-            # Switch to results view
-            if hasattr(self, 'tab_widget'):
-                self.tab_widget.setCurrentIndex(2)  # Matching & Reconciliation tab
-            
-            logger.info(f"Reconciliation completed: {len(matches)} matches in {processing_time:.2f}s")
-            
-        except Exception as e:
-            error_msg = f"Reconciliation failed: {str(e)}"
-            logger.error(error_msg)
-            QMessageBox.critical(self, "Reconciliation Error", error_msg)
+                
+                reconciliation_service = get_optimized_reconciliation_service()
+                reconciliation_service.config = config
+                matches, stats = reconciliation_service.reconcile(bank_tx, erp_transactions)
+                
+                # Store results
+                self.reconciliation_results = matches
+                self.data_service.set_reconciliation_results(matches)
+                
+                # Calculate unmatched transactions
+                unmatched_bank = self._calculate_unmatched_bank(bank_tx, matches)
+                unmatched_erp = self._calculate_unmatched_erp(erp_transactions, matches)
+                
+                # Display results
+                if hasattr(self, 'transaction_tables'):
+                    self.transaction_tables.populate_reconciliation_results(
+                        matches, unmatched_bank, unmatched_erp
+                    )
+                
+                # Update AI results display
+                self._update_ai_results_display(matches)
+                
+                # Show completion message with enhanced statistics
+                success_msg = (
+                    f"Reconciliation completed in {stats.processing_time:.2f} seconds!\n\n"
+                    f"✓ Total Matches: {stats.matches_found}\n"
+                    f"  • High Confidence: {stats.high_confidence_matches}\n"
+                    f"  • Medium Confidence: {stats.medium_confidence_matches}\n"
+                    f"  • Low Confidence: {stats.low_confidence_matches}\n"
+                    f"⚠ Unmatched Bank: {len(unmatched_bank)}\n"
+                    f"⚠ Unmatched ERP: {len(unmatched_erp)}\n\n"
+                    f"View results in the tables below."
+                )
+                
+                QMessageBox.information(self, "Reconciliation Complete", success_msg)
+                
+                # Switch to results view
+                if hasattr(self, 'tab_widget'):
+                    self.tab_widget.setCurrentIndex(2)  # Matching & Reconciliation tab
+                
+                logger.info(f"Reconciliation completed: {len(matches)} matches in {stats.processing_time:.2f}s")
+                
+            except Exception as e:
+                error_msg = f"Reconciliation failed: {str(e)}"
+                logger.error(error_msg)
+                QMessageBox.critical(self, "Reconciliation Error", error_msg)
            
     def _calculate_unmatched_bank(self, bank_transactions, matches):
         """Calculate unmatched bank transactions"""

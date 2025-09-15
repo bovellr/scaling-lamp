@@ -468,10 +468,25 @@ class ERPDataWidget(QWidget):
         self.results_table.setRowCount(display_count)
         
         for row, transaction in enumerate(transactions[:display_count]):
-            self.results_table.setItem(row, 0, QTableWidgetItem(transaction.date))
-            self.results_table.setItem(row, 1, QTableWidgetItem(transaction.description))
-            self.results_table.setItem(row, 2, QTableWidgetItem(f"£{transaction.amount:.2f}"))
-            self.results_table.setItem(row, 3, QTableWidgetItem(transaction.reference or ""))
+            # Format date properly to avoid NaN display
+            date_str = str(transaction.date) if transaction.date else "N/A"
+            if hasattr(transaction.date, 'strftime'):
+                date_str = transaction.date.strftime('%Y-%m-%d')
+            
+            # Handle NaN values in description and reference
+            desc_str = str(transaction.description) if transaction.description and str(transaction.description) != 'nan' else "N/A"
+            ref_str = str(transaction.reference) if transaction.reference and str(transaction.reference) != 'nan' else ""
+            
+            # Handle NaN values in amount
+            try:
+                amount_str = f"£{float(transaction.amount):.2f}" if transaction.amount is not None and str(transaction.amount) != 'nan' else "N/A"
+            except (ValueError, TypeError):
+                amount_str = "N/A"
+            
+            self.results_table.setItem(row, 0, QTableWidgetItem(date_str))
+            self.results_table.setItem(row, 1, QTableWidgetItem(desc_str))
+            self.results_table.setItem(row, 2, QTableWidgetItem(amount_str))
+            self.results_table.setItem(row, 3, QTableWidgetItem(ref_str))
         
         if len(transactions) > 100:
             self.results_summary.setText(
@@ -787,18 +802,60 @@ class ERPDataWidget(QWidget):
             # Convert to TransactionData objects
             def _build_transaction(row: Dict[str, Any]) -> Optional[TransactionData]:
                 try:
+                    # Validate required fields before creating transaction
+                    date_val = row.get('Date')
+                    amount_val = row.get('Amount')
+                    description_val = row.get('Description', '')
+                    
+                    # Skip if date is NaN or invalid
+                    if pd.isna(date_val) or date_val is None:
+                        logger.debug("Skipping transaction with invalid date")
+                        return None
+                    
+                    # Skip if amount is NaN, None, or 0
+                    if pd.isna(amount_val) or amount_val is None or float(amount_val) == 0:
+                        logger.debug("Skipping transaction with invalid amount")
+                        return None
+                    
+                    # Skip if description is NaN or empty
+                    if pd.isna(description_val) or not str(description_val).strip():
+                        logger.debug("Skipping transaction with invalid description")
+                        return None
+                    
+                    # Convert date to string format
+                    if hasattr(date_val, 'strftime'):
+                        date_str = date_val.strftime('%Y-%m-%d')
+                    else:
+                        date_str = str(date_val)
+                    
+                    # Clean description and reference
+                    desc_str = str(description_val).strip()
+                    ref_val = row.get('Reference', '')
+                    ref_str = str(ref_val).strip() if not pd.isna(ref_val) and str(ref_val) != 'nan' else None
+                    
                     return TransactionData(
-                        date=row['Date'].strftime('%Y-%m-%d') if pd.notna(row['Date']) else '',
-                        description=str(row.get('Description', '')),
-                        amount=float(row.get('Amount', 0)),
-                        reference=str(row.get('Reference', '')) if row.get('Reference') else None
+                        date=date_str,
+                        description=desc_str,
+                        amount=float(amount_val),
+                        reference=ref_str
                     )
                     
                 except Exception as e:
                     logger.warning(f"Skipping invalid transaction row: {e}")
                     return None
 
-            transactions = list(filter(None, (_build_transaction(row) for row in processed_df.to_dict('records'))))
+            # Build transactions with validation
+            all_transactions = []
+            filtered_count = 0
+            
+            for row in processed_df.to_dict('records'):
+                transaction = _build_transaction(row)
+                if transaction:
+                    all_transactions.append(transaction)
+                else:
+                    filtered_count += 1
+            
+            transactions = all_transactions
             
             # Update ViewModel
             self.viewmodel._erp_transactions = transactions
@@ -807,7 +864,7 @@ class ERPDataWidget(QWidget):
             # Enhanced success message with mapping details
             self._show_enhanced_success_message(transactions, analysis, file_path)
             
-            logger.info(f"Enhanced ERP file processed: {len(transactions)} transactions loaded")
+            logger.info(f"Enhanced ERP file processed: {len(transactions)} valid transactions loaded, {filtered_count} invalid rows filtered out")
             
         except Exception as e:
             logger.error(f"Enhanced ERP file processing error: {e}")

@@ -163,7 +163,7 @@ class MLEngine:
         erp_transactions: List[ERPTransaction],
         confidence_threshold: float = 0.5,
     ) -> List[TransactionMatch]:
-        """Generate potential matches between bank and ERP transactions"""
+        """Generate potential matches between bank and ERP transactions with optimized performance"""
         matches = []
         
         self.logger.info(
@@ -173,50 +173,69 @@ class MLEngine:
         amount_tolerance = 1.0
         date_tolerance = 7
 
-        # Build index of ERP transactions
+        # Build optimized index of ERP transactions
         erp_df = self._index_erp_transactions(erp_transactions, amount_tolerance, date_tolerance)
-
+        
+        # Pre-validate all bank transactions to avoid repeated validation
+        validated_bank_transactions = []
         for bank_tx in bank_transactions:
-            validated_bank = self._validate_transaction(bank_tx, 'bank', amount_tolerance, date_tolerance)
-            if not validated_bank:
-                continue
-            bank_dt, bank_amount_bucket, bank_date_bucket = validated_bank
+            validated = self._validate_transaction(bank_tx, 'bank', amount_tolerance, date_tolerance)
+            if validated:
+                validated_bank_transactions.append((bank_tx, validated))
 
+        # Use vectorized operations where possible
+        for bank_tx, (bank_dt, bank_amount_bucket, bank_date_bucket) in validated_bank_transactions:
             candidate_erps = self._get_candidate_transactions(
                 erp_df, bank_amount_bucket, bank_date_bucket
             )
 
+            # Limit candidates to prevent performance issues
+            if len(candidate_erps) > 100:
+                candidate_erps = candidate_erps[:100]
+
             for erp_tx in candidate_erps:
-                
-                erp_date_val = getattr(erp_tx, 'description_date', None) or erp_tx.date
-                erp_dt = self._to_datetime(erp_date_val)
-                if abs(abs(bank_tx.amount) - abs(erp_tx.amount)) > amount_tolerance:
+                try:
+                    erp_date_val = getattr(erp_tx, 'description_date', None) or erp_tx.date
+                    erp_dt = self._to_datetime(erp_date_val)
+                    
+                    # Early exit conditions for performance
+                    amount_diff = abs(abs(bank_tx.amount) - abs(erp_tx.amount))
+                    if amount_diff > amount_tolerance:
+                        continue
+                    
+                    date_diff = abs((bank_dt - erp_dt).days)
+                    if date_diff > date_tolerance:
+                        continue
+
+                    # Calculate match features
+                    features = self._extract_features(bank_tx, erp_tx)
+                    
+                    # Predict match probability
+                    confidence = self._predict_match_probability(features)
+
+                    # Only create match if confidence is above minimum threshold
+                    if confidence < 0.3:  # Skip very low confidence matches
+                        continue
+
+                    note = self._generate_match_note(features, confidence, confidence_threshold)
+
+                    match = TransactionMatch(
+                        bank_transaction=bank_tx,
+                        erp_transaction=erp_tx,
+                        confidence_score=confidence,
+                        match_note=note,
+                        amount_score=features['amount_score'],
+                        date_score=features['date_score'],
+                        description_score=features['description_score'],
+                        status=MatchStatus.MATCHED if confidence >= confidence_threshold 
+                                else MatchStatus.PENDING if confidence > 0.5
+                                    else MatchStatus.REJECTED
+                        )
+                    
+                    matches.append(match)
+                except Exception as e:
+                    self.logger.warning(f"Error processing match for {bank_tx.id} and {erp_tx.id}: {e}")
                     continue
-                if abs((bank_dt - erp_dt).days) > date_tolerance:
-                    continue
-
-                # Calculate match features
-                features = self._extract_features(bank_tx, erp_tx)
-                
-                # Predict match probability
-                confidence = self._predict_match_probability(features)
-
-                note = self._generate_match_note(features, confidence, confidence_threshold)
-
-                match = TransactionMatch(
-                    bank_transaction=bank_tx,
-                    erp_transaction=erp_tx,
-                    confidence_score=confidence,
-                    match_note=note,
-                    amount_score=features['amount_score'],
-                    date_score=features['date_score'],
-                    description_score=features['description_score'],
-                    status=MatchStatus.MATCHED if confidence >= confidence_threshold 
-                            else MatchStatus.PENDING if confidence > 0.5
-                                else MatchStatus.REJECTED
-                    )
-                
-                matches.append(match)
        
         # Sort by confidence score (highest first)
         matches.sort(key=lambda m: m.confidence_score, reverse=True)

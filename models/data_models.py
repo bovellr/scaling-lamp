@@ -48,6 +48,33 @@ class TransactionData:
     amount: float
     reference: Optional[str] = None
     original_row_index: int = 0
+    
+    def __post_init__(self):
+        """Validate transaction data after initialization"""
+        self._validate()
+    
+    def _validate(self):
+        """Validate that the transaction data is valid"""
+        # Check date
+        if not self.date or str(self.date).lower() in ['nan', 'none', '']:
+            raise ValueError("Invalid date: date cannot be empty or NaN")
+        
+        # Check description
+        if not self.description or str(self.description).lower() in ['nan', 'none', '']:
+            raise ValueError("Invalid description: description cannot be empty or NaN")
+        
+        # Check amount
+        if self.amount is None or str(self.amount).lower() in ['nan', 'none', '']:
+            raise ValueError("Invalid amount: amount cannot be NaN or None")
+        
+        try:
+            float(self.amount)
+        except (ValueError, TypeError):
+            raise ValueError("Invalid amount: amount must be a valid number")
+        
+        if float(self.amount) == 0:
+            raise ValueError("Invalid amount: amount cannot be zero")
+    
     category: Optional[str] = None
     description_date: Optional[str] = None
     normalized_description: Optional[str] = None
